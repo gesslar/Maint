@@ -19,8 +19,9 @@ jobs:
         env:
           PAT: ${{ secrets.WORKFLOW_MAINT }}
           REPO_OWNER: ${{ github.repository_owner }}
-          TARGET_CLEANUP_REPOS: ${{ secrets.CLEAN_UP_TARGET_REPOS }}
-          TARGET_IGNORE_REPOS: ${{ secrets.TARGET_CLEANUP_IGNORE_REPOS }}
+          TARGET_CLEANUP_REPOS: ${{ vars.TARGET_CLEANUP_REPOS }}
+          TARGET_IGNORE_REPOS: ${{ vars.TARGET_CLEANUP_IGNORE_REPOS }}
+          TARGET_CLEANUP_DAYS: ${{ vars.TARGET_CLEANUP_DAYS }}
         run: |
           echo "Starting cleanup of old workflow runs..."
 
@@ -29,7 +30,8 @@ jobs:
 
           # Set variables
           per_page=100
-          seven_days_ago=$(date -d '7 days ago' +%s)
+          age_threshold=${TARGET_CLEANUP_DAYS:-7}  # Default to 7 days if not set
+          seven_days_ago=$(date -d "$age_threshold days ago" +%s)
 
           # Initialize arrays
           repos_array=()
