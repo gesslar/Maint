@@ -12,8 +12,5 @@ jobs:
       - name: Run Workflow Cleanup Action
         uses: gesslar/workflow-run-cleaner@main
         with:
-          pat: ${{ secrets.WORKFLOW_MAINT }}
+          token: ${{ secrets.WORKFLOW_MAINT }}
           repo_owner: ${{ github.repository_owner }}
-          target_cleanup_repos: ${{ vars.TARGET_CLEANUP_REPOS }}
-          target_ignore_repos: ${{ vars.TARGET_CLEANUP_IGNORE_REPOS }}
-          days_threshold: ${{ vars.CLEANUP_DAYS_THRESHOLD }}
