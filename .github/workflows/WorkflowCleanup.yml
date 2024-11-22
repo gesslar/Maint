@@ -15,3 +15,4 @@ jobs:
           token: ${{ secrets.WORKFLOW_MAINT }}
           repo_owner: ${{ github.repository_owner }}
           notification_webhook_url: ${{ vars.CLEAN_UP_WEBHOOK_URL }}
+          days_threshold: ${{ vars.DAYS_THRESHOLD }}
