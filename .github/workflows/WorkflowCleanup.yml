@@ -14,3 +14,4 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_MAINT }}
           repo_owner: ${{ github.repository_owner }}
+          notification_webhook_url: ${{ vars.CLEAN_UP_WEBHOOK_URL }}
