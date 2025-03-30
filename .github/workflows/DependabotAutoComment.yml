@@ -1,0 +1,16 @@
+name: Auto-merge Dependabot PRs
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:     # Manual trigger
+
+jobs:
+  auto-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Dependabot Auto Comment Action
+        uses: gesslar/dependabot-auto-comment-merge@main
+        with:
+          token: ${{ secrets.WORKFLOW_MAINT }}
+          repo_owner: ${{ github.repository_owner }}
