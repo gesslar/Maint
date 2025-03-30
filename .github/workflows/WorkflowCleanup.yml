@@ -13,5 +13,4 @@ jobs:
         uses: gesslar/workflow-run-cleaner@main
         with:
           token: ${{ secrets.WORKFLOW_MAINT }}
-          repo_owner: ${{ github.repository_owner }}
-          days_threshold: ${{ vars.CLEANUP_DAYS_THRESHOLD }}
+          days-threshold: ${{ vars.CLEANUP_DAYS_THRESHOLD }}
