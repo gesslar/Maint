@@ -13,3 +13,4 @@ jobs:
         uses: gesslar/dependabot-auto-comment-merge@main
         with:
           token: ${{ secrets.WORKFLOW_MAINT }}
+          merge-type: ${{ vars.DEPENDABOT_MERGE_TYPE }}
