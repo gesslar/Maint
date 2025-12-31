@@ -228,7 +228,7 @@ jobs:
             exit 0
           fi
 
-  CreateGithubRelease:
+  CreateGitHubRelease:
     needs: [ConfigureWorkflow, CreateTag]
     runs-on: ubuntu-latest
     if: ${{ needs.CreateTag.outputs.new_tag != '🙅🏻‍♂️' }}
