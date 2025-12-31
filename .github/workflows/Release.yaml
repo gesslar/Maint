@@ -10,12 +10,6 @@ on:
         description: "Name of quality workflow to wait for"
         type: string
         default: "Quality"
-      git_user_name:
-        type: string
-        default: "github-actions"
-      git_user_email:
-        type: string
-        default: "github-actions@github.com"
     secrets:
       NPM_GITHUB_CD_ACCESS_TOKEN:
         required: true
@@ -26,8 +20,6 @@ jobs:
 
     outputs:
       quality_check: ${{ steps.cfg_main.outputs.quality_check }}
-      git_user_name: ${{ steps.cfg_main.outputs.git_user_name }}
-      git_user_email: ${{ steps.cfg_main.outputs.git_user_email }}
       package_manager: ${{ steps.cfg_pm.outputs.package_manager }}
       pm_install_cmd: ${{ steps.cfg_pm.outputs.pm_install_cmd }}
       pm_default: ${{ steps.cfg_main.outputs.pm_default }}
@@ -41,14 +33,10 @@ jobs:
           #############################################################
           QUALITY_CHECK="Quality"
           PACKAGE_MANAGER="auto"
-          GIT_USER_NAME="github-actions"
-          GIT_USER_EMAIL="github-actions@github.com"
           #############################################################
 
           # Apply configuration
           echo "quality_check=${QUALITY_CHECK}" >> "$GITHUB_OUTPUT"
-          echo "git_user_name=${GIT_USER_NAME}" >> "$GITHUB_OUTPUT"
-          echo "git_user_email=${GIT_USER_EMAIL}" >> "$GITHUB_OUTPUT"
           echo "package_manager=${PACKAGE_MANAGER}" >> "$GITHUB_OUTPUT"
           echo "pm_default=npm" >> "$GITHUB_OUTPUT"
 
