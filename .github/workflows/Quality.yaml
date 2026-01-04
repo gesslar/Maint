@@ -113,12 +113,13 @@ jobs:
   Test:
     needs: ConfigureWorkflow
     if: ${{ needs.ConfigureWorkflow.outputs.perform_testing == 'yes' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [22.x, 23.x, 24.x, 25.x]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -134,5 +135,7 @@ jobs:
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
 
       - run: ${{ needs.ConfigureWorkflow.outputs.pm_install_cmd }}
+        shell: bash
 
       - run: ${{ needs.ConfigureWorkflow.outputs.package_manager }} test
+        shell: bash
