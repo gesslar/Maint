@@ -1,3 +1,57 @@
+# Release - Reusable Workflow
+#
+# This workflow automates the release process when a PR is merged. It waits for quality
+# checks, determines if a version bump occurred, creates a git tag, generates a GitHub
+# release, and publishes to npm.
+#
+# INPUTS:
+#   package_manager (string, default: "auto")
+#     Package manager to use. Set to "auto" to detect from package.json, or specify
+#     "npm" or "pnpm" explicitly.
+#
+#   quality_check (string, default: "Quality")
+#     Name of the quality workflow to wait for before proceeding with release.
+#     Set to empty string "" to skip waiting for quality checks.
+#
+#   git_user_name (string, default: "github-actions")
+#     Git user name for creating tags and commits.
+#
+#   git_user_email (string, default: "github-actions@github.com")
+#     Git user email for creating tags and commits.
+#
+# ENVIRONMENT VARIABLES (optional, no commit needed):
+#   All inputs can be overridden by environment variables. Set in repository/organization
+#   settings or in your calling workflow's env section.
+#
+#   PACKAGE_MANAGER
+#     Overrides package_manager input if set.
+#
+#   QUALITY_CHECK
+#     Overrides quality_check input if set.
+#
+#   GIT_USER_NAME
+#     Overrides git_user_name input if set.
+#
+#   GIT_USER_EMAIL
+#     Overrides git_user_email input if set.
+#
+# SECRETS (required):
+#   NPM_GITHUB_CD_ACCESS_TOKEN
+#     npm authentication token for publishing packages.
+#     Create at https://www.npmjs.com/settings/[username]/tokens
+#     Set in repository settings under Secrets and variables → Actions.
+#
+# EXAMPLE USAGE:
+#   jobs:
+#     release:
+#       uses: ./.github/workflows/Release.yaml
+#       with:
+#         quality_check: "Quality"
+#         git_user_name: "github-actions"
+#         git_user_email: "github-actions@github.com"
+#       secrets:
+#         NPM_GITHUB_CD_ACCESS_TOKEN: ${{ secrets.NPM_GITHUB_CD_ACCESS_TOKEN }}
+
 name: Release (Reusable)
 
 on:
@@ -38,12 +92,11 @@ jobs:
       - name: Configure workflow
         id: cfg_main
         run: |+
-          #############################################################
-          QUALITY_CHECK="Quality"
-          PACKAGE_MANAGER="auto"
-          GIT_USER_NAME="github-actions"
-          GIT_USER_EMAIL="github-actions@github.com"
-          #############################################################
+          # Check environment variables, fall back to inputs
+          QUALITY_CHECK="${QUALITY_CHECK:-${{ inputs.quality_check }}}"
+          PACKAGE_MANAGER="${PACKAGE_MANAGER:-${{ inputs.package_manager }}}"
+          GIT_USER_NAME="${GIT_USER_NAME:-${{ inputs.git_user_name }}}"
+          GIT_USER_EMAIL="${GIT_USER_EMAIL:-${{ inputs.git_user_email }}}"
 
           # Apply configuration
           echo "quality_check=${QUALITY_CHECK}" >> "$GITHUB_OUTPUT"
