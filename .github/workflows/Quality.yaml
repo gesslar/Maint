@@ -24,9 +24,9 @@
 #     Examples: "24", "24,25"
 #     Supported values: 22, 23, 24, 25
 #
-# ENVIRONMENT VARIABLES (optional, no commit needed):
-#   All inputs can be overridden by environment variables. Set in repository/organization
-#   settings or in your calling workflow's env section.
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   All inputs can be overridden by repository variables. Set these in your repository
+#   settings under Settings → Secrets and variables → Actions → Variables tab.
 #
 #   PACKAGE_MANAGER
 #     Overrides package_manager input if set.
@@ -94,9 +94,9 @@ jobs:
       - name: Configure Main
         id: cfg_main
         run: |
-          # Check environment variables, fall back to inputs
-          PERFORM_LINTING="${PERFORM_LINTING:-${{ inputs.perform_linting }}}"
-          PERFORM_TESTING="${PERFORM_TESTING:-${{ inputs.perform_testing }}}"
+          # Check repository variables, fall back to inputs
+          PERFORM_LINTING="${{ vars.PERFORM_LINTING || inputs.perform_linting }}"
+          PERFORM_TESTING="${{ vars.PERFORM_TESTING || inputs.perform_testing }}"
 
           echo "perform_linting=${PERFORM_LINTING}" >> "$GITHUB_OUTPUT"
           echo "perform_testing=${PERFORM_TESTING}" >> "$GITHUB_OUTPUT"
@@ -111,8 +111,8 @@ jobs:
           set -euo pipefail
 
           PM_DEFAULT="npm"
-          # Check environment variable, fall back to input
-          PACKAGE_MANAGER="${PACKAGE_MANAGER:-${{ inputs.package_manager }}}"
+          # Check repository variable, fall back to input
+          PACKAGE_MANAGER="${{ vars.PACKAGE_MANAGER || inputs.package_manager }}"
           PM_VERSION=""
 
           if [[ "$PACKAGE_MANAGER" = "auto" ]]; then
@@ -163,17 +163,24 @@ jobs:
 
           ALL_OS=("ubuntu-latest" "windows-latest" "macos-latest")
 
-          # Combine input and environment variable
+          # Combine input and repository variable
           DISABLED_INPUT="${{ inputs.disabled_test_runners }}"
-          DISABLED_ENV="${DISABLED_TEST_RUNNERS:-}"
+          DISABLED_VAR="${{ vars.DISABLED_TEST_RUNNERS }}"
 
-          if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_ENV" ]]; then
-            DISABLED="${DISABLED_INPUT},${DISABLED_ENV}"
-          elif [[ -n "$DISABLED_ENV" ]]; then
-            DISABLED="$DISABLED_ENV"
+          echo "::notice::OS Matrix Configuration"
+          echo "::notice::  Available runners: ${ALL_OS[*]}"
+          echo "::notice::  Disabled (input): ${DISABLED_INPUT:-<none>}"
+          echo "::notice::  Disabled (repo var): ${DISABLED_VAR:-<none>}"
+
+          if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_VAR" ]]; then
+            DISABLED="${DISABLED_INPUT},${DISABLED_VAR}"
+          elif [[ -n "$DISABLED_VAR" ]]; then
+            DISABLED="$DISABLED_VAR"
           else
             DISABLED="$DISABLED_INPUT"
           fi
+
+          echo "::notice::  Combined disabled list: ${DISABLED:-<none>}"
 
           if [[ -z "$DISABLED" ]]; then
             OS_LIST=("${ALL_OS[@]}")
@@ -200,6 +207,8 @@ jobs:
             exit 1
           fi
 
+          echo "::notice::  Final OS matrix: ${OS_LIST[*]}"
+
           JSON=$(printf '%s\n' "${OS_LIST[@]}" | jq -R . | jq -s -c .)
           echo "os_matrix=${JSON}" >> "$GITHUB_OUTPUT"
 
@@ -210,17 +219,24 @@ jobs:
 
           ALL_NODE_VERSIONS=("22.x" "23.x" "24.x" "25.x")
 
-          # Combine input and environment variable
+          # Combine input and repository variable
           DISABLED_INPUT="${{ inputs.disabled_node_versions }}"
-          DISABLED_ENV="${DISABLED_NODE_VERSIONS:-}"
+          DISABLED_VAR="${{ vars.DISABLED_NODE_VERSIONS }}"
 
-          if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_ENV" ]]; then
-            DISABLED="${DISABLED_INPUT},${DISABLED_ENV}"
-          elif [[ -n "$DISABLED_ENV" ]]; then
-            DISABLED="$DISABLED_ENV"
+          echo "::notice::Node Version Matrix Configuration"
+          echo "::notice::  Available versions: ${ALL_NODE_VERSIONS[*]}"
+          echo "::notice::  Disabled (input): ${DISABLED_INPUT:-<none>}"
+          echo "::notice::  Disabled (repo var): ${DISABLED_VAR:-<none>}"
+
+          if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_VAR" ]]; then
+            DISABLED="${DISABLED_INPUT},${DISABLED_VAR}"
+          elif [[ -n "$DISABLED_VAR" ]]; then
+            DISABLED="$DISABLED_VAR"
           else
             DISABLED="$DISABLED_INPUT"
           fi
+
+          echo "::notice::  Combined disabled list: ${DISABLED:-<none>}"
 
           if [[ -z "$DISABLED" ]]; then
             NODE_LIST=("${ALL_NODE_VERSIONS[@]}")
@@ -246,6 +262,8 @@ jobs:
             echo "::error::All Node versions have been disabled"
             exit 1
           fi
+
+          echo "::notice::  Final Node version matrix: ${NODE_LIST[*]}"
 
           JSON=$(printf '%s\n' "${NODE_LIST[@]}" | jq -R . | jq -s -c .)
           echo "node_version_matrix=${JSON}" >> "$GITHUB_OUTPUT"

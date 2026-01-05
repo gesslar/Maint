@@ -19,9 +19,9 @@
 #   git_user_email (string, default: "github-actions@github.com")
 #     Git user email for creating tags and commits.
 #
-# ENVIRONMENT VARIABLES (optional, no commit needed):
-#   All inputs can be overridden by environment variables. Set in repository/organization
-#   settings or in your calling workflow's env section.
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   All inputs can be overridden by repository variables. Set these in your repository
+#   settings under Settings → Secrets and variables → Actions → Variables tab.
 #
 #   PACKAGE_MANAGER
 #     Overrides package_manager input if set.
@@ -92,11 +92,11 @@ jobs:
       - name: Configure workflow
         id: cfg_main
         run: |+
-          # Check environment variables, fall back to inputs
-          QUALITY_CHECK="${QUALITY_CHECK:-${{ inputs.quality_check }}}"
-          PACKAGE_MANAGER="${PACKAGE_MANAGER:-${{ inputs.package_manager }}}"
-          GIT_USER_NAME="${GIT_USER_NAME:-${{ inputs.git_user_name }}}"
-          GIT_USER_EMAIL="${GIT_USER_EMAIL:-${{ inputs.git_user_email }}}"
+          # Check repository variables, fall back to inputs
+          QUALITY_CHECK="${{ vars.QUALITY_CHECK || inputs.quality_check }}"
+          PACKAGE_MANAGER="${{ vars.PACKAGE_MANAGER || inputs.package_manager }}"
+          GIT_USER_NAME="${{ vars.GIT_USER_NAME || inputs.git_user_name }}"
+          GIT_USER_EMAIL="${{ vars.GIT_USER_EMAIL || inputs.git_user_email }}"
 
           # Apply configuration
           echo "quality_check=${QUALITY_CHECK}" >> "$GITHUB_OUTPUT"
