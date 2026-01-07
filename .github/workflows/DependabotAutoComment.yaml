@@ -3,14 +3,41 @@ name: Auto-merge Dependabot PRs
 on:
   schedule:
     - cron: '0 */6 * * *'  # Every 6 hours
-  workflow_dispatch:     # Manual trigger
+  workflow_dispatch:
 
 jobs:
-  auto-comment:
+  auto-merge:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - name: Run Dependabot Auto Comment Action
-        uses: gesslar/dependabot-auto-comment-merge@main
-        with:
-          token: ${{ secrets.WORKFLOW_MAINT }}
-          merge-type: ${{ vars.DEPENDABOT_MERGE_TYPE }}
+      - name: Enable auto-merge for Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_MAINT }}
+          MERGE_TYPE: ${{ vars.DEPENDABOT_MERGE_TYPE }}
+        run: |
+          set -euo pipefail
+
+          merge_flag="--merge"
+          case "${MERGE_TYPE:-merge}" in
+            merge) merge_flag="--merge" ;;
+            squash) merge_flag="--squash" ;;
+            rebase) merge_flag="--rebase" ;;
+            *)
+              echo "Unknown MERGE_TYPE '${MERGE_TYPE}', defaulting to merge."
+              merge_flag="--merge"
+              ;;
+          esac
+
+          prs=$(gh pr list --author "app/dependabot" --state open --json number --jq '.[].number')
+
+          if [ -z "${prs}" ]; then
+            echo "No open Dependabot PRs found."
+            exit 0
+          fi
+
+          for pr in ${prs}; do
+            echo "Enabling auto-merge for PR #${pr}"
+            gh pr merge "${pr}" --auto ${merge_flag}
+          done
