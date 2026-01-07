@@ -167,11 +167,6 @@ jobs:
           DISABLED_INPUT="${{ inputs.disabled_test_runners }}"
           DISABLED_VAR="${{ vars.DISABLED_TEST_RUNNERS }}"
 
-          echo "::notice::OS Matrix Configuration"
-          echo "::notice::  Available runners: ${ALL_OS[*]}"
-          echo "::notice::  Disabled (input): ${DISABLED_INPUT:-<none>}"
-          echo "::notice::  Disabled (repo var): ${DISABLED_VAR:-<none>}"
-
           if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_VAR" ]]; then
             DISABLED="${DISABLED_INPUT},${DISABLED_VAR}"
           elif [[ -n "$DISABLED_VAR" ]]; then
@@ -179,8 +174,6 @@ jobs:
           else
             DISABLED="$DISABLED_INPUT"
           fi
-
-          echo "::notice::  Combined disabled list: ${DISABLED:-<none>}"
 
           if [[ -z "$DISABLED" ]]; then
             OS_LIST=("${ALL_OS[@]}")
@@ -207,10 +200,10 @@ jobs:
             exit 1
           fi
 
-          echo "::notice::  Final OS matrix: ${OS_LIST[*]}"
-
           JSON=$(printf '%s\n' "${OS_LIST[@]}" | jq -R . | jq -s -c .)
           echo "os_matrix=${JSON}" >> "$GITHUB_OUTPUT"
+          echo "os_list=${OS_LIST[*]}" >> "$GITHUB_OUTPUT"
+          echo "disabled_os=${DISABLED:-<none>}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Node Version Matrix
         id: cfg_node_versions
@@ -223,11 +216,6 @@ jobs:
           DISABLED_INPUT="${{ inputs.disabled_node_versions }}"
           DISABLED_VAR="${{ vars.DISABLED_NODE_VERSIONS }}"
 
-          echo "::notice::Node Version Matrix Configuration"
-          echo "::notice::  Available versions: ${ALL_NODE_VERSIONS[*]}"
-          echo "::notice::  Disabled (input): ${DISABLED_INPUT:-<none>}"
-          echo "::notice::  Disabled (repo var): ${DISABLED_VAR:-<none>}"
-
           if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_VAR" ]]; then
             DISABLED="${DISABLED_INPUT},${DISABLED_VAR}"
           elif [[ -n "$DISABLED_VAR" ]]; then
@@ -235,8 +223,6 @@ jobs:
           else
             DISABLED="$DISABLED_INPUT"
           fi
-
-          echo "::notice::  Combined disabled list: ${DISABLED:-<none>}"
 
           if [[ -z "$DISABLED" ]]; then
             NODE_LIST=("${ALL_NODE_VERSIONS[@]}")
@@ -263,10 +249,25 @@ jobs:
             exit 1
           fi
 
-          echo "::notice::  Final Node version matrix: ${NODE_LIST[*]}"
-
           JSON=$(printf '%s\n' "${NODE_LIST[@]}" | jq -R . | jq -s -c .)
           echo "node_version_matrix=${JSON}" >> "$GITHUB_OUTPUT"
+          echo "node_list=${NODE_LIST[*]}" >> "$GITHUB_OUTPUT"
+          echo "disabled_node=${DISABLED:-<none>}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat <<'EOF'
+          Quality Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Package Manager ......... ${{ steps.cfg_pm.outputs.package_manager }}
+          Perform Linting ......... ${{ steps.cfg_main.outputs.perform_linting }}
+          Perform Testing ......... ${{ steps.cfg_main.outputs.perform_testing }}
+          Node Version (lint) ..... ${{ steps.cfg_node.outputs.node_version }}
+          OS Matrix ............... ${{ steps.cfg_os.outputs.os_list }}
+          Node Version Matrix ..... ${{ steps.cfg_node_versions.outputs.node_list }}
+          Disabled OS ............. ${{ steps.cfg_os.outputs.disabled_os }}
+          Disabled Node Versions .. ${{ steps.cfg_node_versions.outputs.disabled_node }}
+          EOF
 
   Lint:
     needs: ConfigureWorkflow
