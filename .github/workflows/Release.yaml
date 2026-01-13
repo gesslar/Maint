@@ -361,6 +361,83 @@ jobs:
           node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
 
+      - name: Install dependencies
+        run: ${{ needs.ConfigureWorkflow.outputs.pm_install_cmd }}
+
+      - name: Check NPM version and compare
+        id: check_npm_version
+        run: |
+          set -euo pipefail
+
+          NEW_VERSION="${{ needs.DetermineVersion.outputs.version }}"
+          PACKAGE_NAME=$(jq -r .name package.json)
+
+          echo "Checking NPM for package: ${PACKAGE_NAME}"
+          echo "New version to publish: ${NEW_VERSION}"
+
+          # Check if the exact version already exists on NPM
+          if npm view "${PACKAGE_NAME}@${NEW_VERSION}" version >/dev/null 2>&1; then
+            NPM_VERSION=$(npm view "${PACKAGE_NAME}" version)
+            echo "Version ${NEW_VERSION} already exists on NPM (latest: ${NPM_VERSION})"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "npm_version=${NPM_VERSION}" >> "$GITHUB_OUTPUT"
+            echo "version_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            # Get the latest version from NPM
+            if NPM_VERSION=$(npm view "${PACKAGE_NAME}" version 2>/dev/null); then
+              echo "Current NPM version: ${NPM_VERSION}"
+
+              # Use node with semver (available via npm) to compare versions
+              COMPARE_RESULT=$(node -e "
+                try {
+                  const semver = require('semver');
+                  const newVer = process.argv[1];
+                  const npmVer = process.argv[2];
+                  if (semver.gt(newVer, npmVer)) {
+                    console.log('greater');
+                  } else {
+                    console.log('not-greater');
+                  }
+                } catch (e) {
+                  // Fallback: if semver not available, proceed with publish
+                  console.log('greater');
+                }
+              " "${NEW_VERSION}" "${NPM_VERSION}")
+
+              if [ "$COMPARE_RESULT" = "greater" ]; then
+                echo "New version ${NEW_VERSION} is greater than NPM version ${NPM_VERSION}"
+                echo "should_publish=true" >> "$GITHUB_OUTPUT"
+                echo "npm_version=${NPM_VERSION}" >> "$GITHUB_OUTPUT"
+                echo "version_exists=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "New version ${NEW_VERSION} is not greater than NPM version ${NPM_VERSION}"
+                echo "should_publish=false" >> "$GITHUB_OUTPUT"
+                echo "npm_version=${NPM_VERSION}" >> "$GITHUB_OUTPUT"
+                echo "version_exists=false" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              # Package doesn't exist on NPM yet, proceed with publish
+              echo "Package not found on NPM, proceeding with publish"
+              echo "should_publish=true" >> "$GITHUB_OUTPUT"
+              echo "npm_version=" >> "$GITHUB_OUTPUT"
+              echo "version_exists=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Skip publish annotation
+        if: steps.check_npm_version.outputs.should_publish == 'false'
+        run: |
+          NEW_VERSION="${{ needs.DetermineVersion.outputs.version }}"
+          NPM_VERSION="${{ steps.check_npm_version.outputs.npm_version }}"
+          VERSION_EXISTS="${{ steps.check_npm_version.outputs.version_exists }}"
+
+          if [ "$VERSION_EXISTS" = "true" ]; then
+            echo "::notice title=Version Check::Skipping NPM publish: version ${NEW_VERSION} already exists on NPM (latest: ${NPM_VERSION})."
+          else
+            echo "::notice title=Version Check::Skipping NPM publish: version ${NEW_VERSION} is not greater than NPM version ${NPM_VERSION}."
+          fi
+
       - name: Ship it
+        if: steps.check_npm_version.outputs.should_publish == 'true'
         run: |
           ${{ needs.ConfigureWorkflow.outputs.package_manager }} publish --access public --//registry.npmjs.org/:_authToken=${TOKEN}
