@@ -1,0 +1,252 @@
+# Release Only - Reusable Workflow
+#
+# This workflow automates the release process when a PR is merged. It waits for quality
+# checks, determines if a version bump occurred, creates a git tag, and generates a
+# GitHub release. Ecosystem-agnostic — no build steps, no package manager assumptions.
+#
+# Artefacts are the caller's responsibility. Build them in prior jobs, upload them with
+# actions/upload-artifact, and pass the artifact names here. This workflow downloads
+# and attaches them to the release.
+#
+# INPUTS:
+#   quality_check (string, default: "Quality")
+#     Name of the quality workflow to wait for before proceeding with release.
+#     Set to empty string "" to skip waiting for quality checks.
+#
+#   git_user_name (string, default: "github-actions")
+#     Git user name for creating tags.
+#
+#   git_user_email (string, default: "github-actions@github.com")
+#     Git user email for creating tags.
+#
+#   artefacts (string, default: "[]")
+#     JSON array of artifact names to download and attach to the release.
+#     These must have been uploaded by prior jobs using actions/upload-artifact.
+#     Example: '["my-extension", "checksums"]'
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   All inputs can be overridden by repository variables. Set these in your repository
+#   settings under Settings → Secrets and variables → Actions → Variables tab.
+#
+#   QUALITY_CHECK
+#     Overrides quality_check input if set.
+#
+#   GIT_USER_NAME
+#     Overrides git_user_name input if set.
+#
+#   GIT_USER_EMAIL
+#     Overrides git_user_email input if set.
+#
+# EXAMPLE USAGE:
+#   # Minimal — tag + release, no artefacts:
+#   jobs:
+#     release:
+#       uses: ./.github/workflows/ReleaseOnly.yaml
+#       with:
+#         quality_check: "Quality"
+#
+#   # With artefacts — caller builds, this workflow attaches:
+#   jobs:
+#     build:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v6
+#         - run: npm ci && vsce package
+#         - uses: actions/upload-artifact@v4
+#           with:
+#             name: extension
+#             path: "*.vsix"
+#
+#     release:
+#       needs: build
+#       uses: ./.github/workflows/ReleaseOnly.yaml
+#       with:
+#         quality_check: "Quality"
+#         artefacts: '["extension"]'
+
+name: Release Only (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      quality_check:
+        description: "Name of quality workflow to wait for"
+        type: string
+        default: "Quality"
+      git_user_name:
+        type: string
+        default: "github-actions"
+      git_user_email:
+        type: string
+        default: "github-actions@github.com"
+      artefacts:
+        description: "JSON array of artifact names to attach to the release"
+        type: string
+        default: "[]"
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+
+    outputs:
+      quality_check: ${{ steps.cfg.outputs.quality_check }}
+      git_user_name: ${{ steps.cfg.outputs.git_user_name }}
+      git_user_email: ${{ steps.cfg.outputs.git_user_email }}
+      artefacts: ${{ steps.cfg.outputs.artefacts }}
+
+    steps:
+      - name: Configure workflow
+        id: cfg
+        run: |+
+          # Check repository variables, fall back to inputs
+          QUALITY_CHECK="${{ vars.QUALITY_CHECK || inputs.quality_check }}"
+          GIT_USER_NAME="${{ vars.GIT_USER_NAME || inputs.git_user_name }}"
+          GIT_USER_EMAIL="${{ vars.GIT_USER_EMAIL || inputs.git_user_email }}"
+          ARTEFACTS='${{ inputs.artefacts }}'
+
+          # Apply configuration
+          echo "quality_check=${QUALITY_CHECK}" >> "$GITHUB_OUTPUT"
+          echo "git_user_name=${GIT_USER_NAME}" >> "$GITHUB_OUTPUT"
+          echo "git_user_email=${GIT_USER_EMAIL}" >> "$GITHUB_OUTPUT"
+          echo "artefacts=${ARTEFACTS}" >> "$GITHUB_OUTPUT"
+
+      - name: Display Configuration
+        run: |+
+          printf "Quality Check: %s\n" "${{ steps.cfg.outputs.quality_check }}"
+          printf "Git User: %s <%s>\n" "${{ steps.cfg.outputs.git_user_name }}" "${{ steps.cfg.outputs.git_user_email }}"
+          printf "Artefacts: %s\n" '${{ steps.cfg.outputs.artefacts }}'
+
+  WaitForQuality:
+    needs: ConfigureWorkflow
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    steps:
+      - name: Wait for Quality workflow
+        if: ${{ inputs.quality_check != '' }}
+        uses: lewagon/wait-on-check-action@v1.4.1
+        with:
+          ref: ${{ github.ref }}
+          running-workflow-name: ${{ inputs.quality_check }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  DetermineVersion:
+    needs: WaitForQuality
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check version
+        id: check_version
+        uses: gesslar/new-version-questionmark@v1.5.6
+        with:
+          source: package.json
+          version_pattern: "^v\\d+\\.\\d+\\.\\d+$"
+
+      - name: Set version output
+        id: version
+        run: |
+          UPDATED_VERSION="${{ steps.check_version.outputs.updated_version }}"
+          if [[ "$UPDATED_VERSION" == "no changes" ]]; then
+            echo "VERSION=🙅🏻‍♂️" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${UPDATED_VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+  CreateTag:
+    needs: [ConfigureWorkflow, DetermineVersion]
+    if: ${{ needs.DetermineVersion.outputs.version != '🙅🏻‍♂️' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    outputs:
+      new_tag: ${{ steps.check_tag.outputs.new_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Git Variables
+        run: |+
+          git config user.name "${{ needs.ConfigureWorkflow.outputs.git_user_name }}"
+          git config user.email "${{ needs.ConfigureWorkflow.outputs.git_user_email }}"
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Check for existing tag and create if it does not exist
+        id: check_tag
+        run: |+
+          CURRENT_VERSION="${{ needs.DetermineVersion.outputs.version }}"
+          TAG_EXISTS=$(git tag -l "v${CURRENT_VERSION}")
+
+          echo "Value of TAG_EXISTS: $TAG_EXISTS"
+
+          if [ -z "$TAG_EXISTS" ]; then
+            echo "Tag does not exist for version v${CURRENT_VERSION}. Creating tag."
+            git tag "v${CURRENT_VERSION}"
+            git push origin "v${CURRENT_VERSION}"
+            echo "new_tag=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "Tag already exists for version v${CURRENT_VERSION}. Skipping tag creation."
+            echo "new_tag=🙅🏻‍♂️" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+  CreateGitHubRelease:
+    needs: [ConfigureWorkflow, CreateTag]
+    runs-on: ubuntu-latest
+    if: ${{ needs.CreateTag.outputs.new_tag != '🙅🏻‍♂️' }}
+
+    permissions:
+      contents: write
+
+    env:
+      NEW_TAG: ${{ needs.CreateTag.outputs.new_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download artefacts
+        if: ${{ needs.ConfigureWorkflow.outputs.artefacts != '[]' }}
+        uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+          merge-multiple: true
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |+
+          ARTEFACTS='${{ needs.ConfigureWorkflow.outputs.artefacts }}'
+
+          ARGS=(
+            "${{ env.NEW_TAG }}"
+            --title "Release ${{ env.NEW_TAG }}"
+            --generate-notes
+          )
+
+          if [[ "$ARTEFACTS" != "[]" ]]; then
+            shopt -s nullglob
+            FILES=( artefacts/* )
+            shopt -u nullglob
+
+            if [[ ${#FILES[@]} -eq 0 ]]; then
+              echo "::warning::Artefacts were specified but no files were found after download."
+            else
+              for f in "${FILES[@]}"; do
+                echo "Attaching artefact: $f"
+                ARGS+=( "$f" )
+              done
+            fi
+          fi
+
+          set -x
+          gh release create "${ARGS[@]}"
