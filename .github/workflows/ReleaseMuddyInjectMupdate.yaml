@@ -54,4 +54,5 @@ jobs:
           artifacts: "build/${{ steps.mfile_vars.outputs.package }}.mpackage,${{ steps.create_version_file.outputs.filename }}"
           allowUpdates: true
           bodyFile: "./README.md"
+          generateReleaseNotes: true
           tag: ${{ steps.mfile_vars.outputs.version }}
