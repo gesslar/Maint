@@ -210,7 +210,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ALL_NODE_VERSIONS=("22.x" "23.x" "24.x" "25.x")
+          ALL_NODE_VERSIONS=("24.x" "25.x")
 
           # Combine input and repository variable
           DISABLED_INPUT="${{ inputs.disabled_node_versions }}"
