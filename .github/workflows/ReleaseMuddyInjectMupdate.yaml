@@ -44,7 +44,7 @@ jobs:
           echo "${{ steps.mfile_vars.outputs.version }}" > "$filename"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Build with muddy
         run: pnpx @gesslar/muddy
