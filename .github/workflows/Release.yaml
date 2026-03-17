@@ -236,7 +236,7 @@ jobs:
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
@@ -302,7 +302,7 @@ jobs:
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
@@ -351,7 +351,7 @@ jobs:
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
