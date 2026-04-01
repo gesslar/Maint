@@ -1,0 +1,154 @@
+# Release Starlight - Reusable Workflow
+#
+# This workflow builds a Starlight documentation site and deploys it to a remote
+# server via rsync over SSH. Intended for use on push to main, PR merge, or
+# manual dispatch.
+#
+# INPUTS:
+#   docs_directory (string, default: "docs")
+#     Path to the Starlight project directory, relative to the repository root.
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   DOCS_DIRECTORY
+#     Overrides docs_directory input if set.
+#
+# SECRETS (required):
+#   SSH_PRIVATE_KEY
+#     SSH private key for authenticating with the deployment server.
+#
+#   SFTP_SERVER
+#     Hostname or IP of the deployment server.
+#
+#   SFTP_USERNAME
+#     SSH username on the deployment server.
+#
+#   SFTP_TARGET_DIR
+#     Absolute path on the server where the built site will be deployed.
+#
+# EXAMPLE USAGE:
+#   jobs:
+#     deploy-docs:
+#       uses: gesslar/Maint/.github/workflows/ReleaseStarlight.yaml@main
+#       with:
+#         docs_directory: "docs"
+#       secrets:
+#         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+#         SFTP_SERVER: ${{ secrets.SFTP_SERVER }}
+#         SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+#         SFTP_TARGET_DIR: ${{ secrets.SFTP_TARGET_DIR }}
+
+name: Release Starlight (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      docs_directory:
+        description: "Path to the Starlight project directory relative to repo root"
+        type: string
+        default: "docs"
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      SFTP_SERVER:
+        required: true
+      SFTP_USERNAME:
+        required: true
+      SFTP_TARGET_DIR:
+        required: true
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    outputs:
+      node_version: ${{ steps.cfg_node.outputs.node_version }}
+      docs_directory: ${{ steps.cfg_main.outputs.docs_directory }}
+
+    steps:
+      - name: Configure Main
+        id: cfg_main
+        run: |
+          DOCS_DIRECTORY="${{ vars.DOCS_DIRECTORY || inputs.docs_directory }}"
+          echo "docs_directory=${DOCS_DIRECTORY}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure Node Version
+        id: cfg_node
+        run: |+
+          set -euo pipefail
+
+          NODE_VERSION=""
+
+          if ! NODE_RAW=$(jq -er '.engines.node' package.json); then
+            echo "::error::engines.node is required in package.json."
+            exit 1
+          fi
+
+          if [[ "$NODE_RAW" =~ [^0-9]*([0-9]+) ]]; then
+            NODE_VERSION="${BASH_REMATCH[1]}"
+          else
+            echo "::error::Unable to parse engines.node ('${NODE_RAW}') for a Node.js version."
+            exit 1
+          fi
+
+          echo "node_version=${NODE_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Display Configuration
+        run: |+
+          printf "Node: %s\n" "${{ steps.cfg_node.outputs.node_version }}"
+          printf "Docs Directory: %s\n" "${{ steps.cfg_main.outputs.docs_directory }}"
+
+  BuildAndDeploy:
+    needs: ConfigureWorkflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      DOCS_DIR: ${{ needs.ConfigureWorkflow.outputs.docs_directory }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm --prefix ${{ env.DOCS_DIR }} ci
+
+      - name: Build Starlight
+        run: npm --prefix ${{ env.DOCS_DIR }} run build
+        env:
+          NODE_ENV: production
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known hosts
+        env:
+          SFTP_SERVER: ${{ secrets.SFTP_SERVER }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$SFTP_SERVER" >> ~/.ssh/known_hosts
+
+      - name: Install rsync
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Deploy via rsync
+        env:
+          SFTP_SERVER: ${{ secrets.SFTP_SERVER }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_TARGET_DIR: ${{ secrets.SFTP_TARGET_DIR }}
+        run: |
+          rsync -avz --delete -e "ssh" "${{ env.DOCS_DIR }}/dist/" "$SFTP_USERNAME@$SFTP_SERVER:$SFTP_TARGET_DIR"
