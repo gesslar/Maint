@@ -143,7 +143,7 @@ jobs:
 
       - name: Check version
         id: check_version
-        uses: gesslar/new-version-questionmark@v1.5.6
+        uses: gesslar/new-version-questionmark@v1.6.2
         with:
           source: package.json
           version_pattern: "^v\\d+\\.\\d+\\.\\d+$"
