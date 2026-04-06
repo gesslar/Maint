@@ -123,7 +123,7 @@ jobs:
     steps:
       - name: Wait for Quality workflow
         if: ${{ inputs.quality_check != '' }}
-        uses: lewagon/wait-on-check-action@v1.6.0
+        uses: lewagon/wait-on-check-action@v1.6.1
         with:
           ref: ${{ github.ref }}
           running-workflow-name: ${{ inputs.quality_check }}
