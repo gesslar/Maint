@@ -1,0 +1,89 @@
+# QualityMudlet - Reusable Workflow
+#
+# Runs Mudlet package tests via the gesslardev/mudlet-busted Docker image.
+# Use this instead of the generic Quality.yaml for Mudlet packages — it skips
+# the Node version matrix, OS matrix, and linting, which don't apply to Lua
+# packages consumed through Mudlet.
+#
+# The mudlet-busted image internally:
+#   1. Builds the package with muddy (reads mfile, scripts.json, etc.)
+#   2. Installs the built .mpackage into a throwaway Mudlet profile
+#   3. Runs Busted specs from src/resources/test/
+# So a single `npm test` covers build, install, and test in one step.
+#
+# Requirements on the consuming package:
+#   - package.json with a "test" script invoking gesslardev/mudlet-busted,
+#     e.g. `docker run --rm -v "$PWD":/workspace gesslardev/mudlet-busted`
+#   - mfile with "ignore": ["resources/test/*"] to keep specs out of builds
+#   - Specs at src/resources/test/*_spec.lua
+#
+# INPUTS:
+#   perform_testing (string, default: "yes")
+#     Whether to run the test job. Set to "no" to skip testing entirely.
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   PERFORM_TESTING
+#     Overrides the perform_testing input if set. Configure in
+#     Settings → Secrets and variables → Actions → Variables.
+#
+# EXAMPLE USAGE:
+#   name: Quality
+#
+#   on:
+#     workflow_dispatch:
+#     push:
+#       branches: [main]
+#     pull_request:
+#       branches: [main]
+#
+#   jobs:
+#     Quality:
+#       uses: gesslar/Maint/.github/workflows/QualityMudlet.yaml@main
+#       secrets: inherit
+#       with:
+#         perform_testing: "${{ vars.PERFORM_TESTING || 'yes' }}"
+
+name: Quality (Mudlet)
+
+on:
+  workflow_call:
+    inputs:
+      perform_testing:
+        type: string
+        default: "yes"
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      perform_testing: ${{ steps.cfg.outputs.perform_testing }}
+
+    steps:
+      - name: Configure
+        id: cfg
+        run: |
+          # Repository variable wins, fall back to caller input.
+          PERFORM_TESTING="${{ vars.PERFORM_TESTING || inputs.perform_testing }}"
+          echo "perform_testing=${PERFORM_TESTING}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat <<'EOF'
+          Quality (Mudlet) Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Perform Testing ......... ${{ steps.cfg.outputs.perform_testing }}
+          EOF
+
+  Test:
+    needs: ConfigureWorkflow
+    if: ${{ needs.ConfigureWorkflow.outputs.perform_testing == 'yes' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Mudlet package tests
+        run: npm test

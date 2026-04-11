@@ -1,0 +1,129 @@
+name: Build Mudlet package and publish release
+
+# Reusable workflow for releasing a Mudlet package. Builds with muddy and
+# publishes a GitHub release with the resulting .mpackage. Optionally gates
+# on a Quality workflow and/or injects Mupdate.
+#
+# Optional quality gate:
+#   Pass `quality_check` (or set the QUALITY_CHECK repo variable) to the name
+#   of a workflow that must complete before the release proceeds. Empty
+#   string (the default) disables the gate.
+#
+# Optional Mupdate injection:
+#   Pass `inject_mupdate: true` to download the latest Updater.lua from
+#   gesslar/mupdate and splice it into scripts.json before the muddy build.
+#   Defaults to false — small packages and libraries that don't need an
+#   in-Mudlet auto-updater can omit it and carry no Mupdate dependency.
+#
+#   Mupdate is a self-updater for Mudlet packages. For documentation on how
+#   to wire it into your package's runtime (initialization, update checks,
+#   user commands), see the project README at:
+#     https://github.com/gesslar/mupdate
+#
+# Legacy entry point:
+#   `ReleaseMuddyInjectMupdate.yaml` remains available as a thin alias
+#   that calls this workflow with `inject_mupdate: true`. Existing callers
+#   of that file continue to work without changes.
+#
+# EXAMPLE USAGE:
+#   jobs:
+#     release:
+#       uses: gesslar/Maint/.github/workflows/ReleaseMudlet.yaml@main
+#       permissions:
+#         contents: write
+#       with:
+#         quality_check: "Quality"
+#         inject_mupdate: false
+
+on:
+  workflow_call:
+    inputs:
+      quality_check:
+        description: "Name of the quality workflow to wait for before releasing. Empty string disables the gate."
+        type: string
+        default: ""
+      inject_mupdate:
+        description: "Download Updater.lua and splice it into scripts.json before building."
+        type: boolean
+        default: false
+
+jobs:
+  WaitForQuality:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+    steps:
+      - name: Resolve quality_check
+        id: cfg
+        run: |
+          # Repository variable wins, fall back to caller input.
+          QUALITY_CHECK="${{ vars.QUALITY_CHECK || inputs.quality_check }}"
+          echo "quality_check=${QUALITY_CHECK}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Quality workflow
+        if: ${{ steps.cfg.outputs.quality_check != '' }}
+        uses: lewagon/wait-on-check-action@v1.6.1
+        with:
+          ref: ${{ github.ref }}
+          check-name: ${{ steps.cfg.outputs.quality_check }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  build:
+    needs: WaitForQuality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Download Updater.lua
+        if: ${{ inputs.inject_mupdate }}
+        run: |
+          mkdir -p src/scripts
+          curl -L -o src/scripts/Updater.lua https://github.com/gesslar/mupdate/releases/latest/download/Updater.lua
+
+      - name: Check and create scripts.json if it doesn't exist
+        if: ${{ inputs.inject_mupdate }}
+        run: |
+          if [ ! -f src/scripts/scripts.json ]; then
+            mkdir -p src/scripts
+            echo '[]' > src/scripts/scripts.json
+          fi
+
+      - name: Update scripts.json
+        if: ${{ inputs.inject_mupdate }}
+        run: |
+          jq '. += [{"isActive": "yes", "isFolder": "no", "name": "Updater", "script": ""}]' src/scripts/scripts.json > tmp.json && mv tmp.json src/scripts/scripts.json
+
+      - name: Read mfile variables
+        id: mfile_vars
+        run: |
+          package=$(jq -r '.package' mfile)
+          version=$(jq -r '.version' mfile)
+          echo "package=$package" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: "create version file"
+        id: create_version_file
+        run: |
+          filename="${{ steps.mfile_vars.outputs.package }}_version.txt"
+          echo "filename=$filename" >> $GITHUB_OUTPUT
+          echo "${{ steps.mfile_vars.outputs.version }}" > "$filename"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Build with muddy
+        run: npx --yes @gesslar/muddy
+
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/${{ steps.mfile_vars.outputs.package }}.mpackage,${{ steps.create_version_file.outputs.filename }}"
+          allowUpdates: true
+          bodyFile: "./README.md"
+          generateReleaseNotes: true
+          tag: ${{ steps.mfile_vars.outputs.version }}

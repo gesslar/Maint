@@ -1,60 +1,42 @@
-name: Build project using muddy and upload artifact and inject Mupdate
+name: Build Mudlet package with Mupdate and publish release
+
+# Thin alias: delegates to ReleaseMudlet.yaml with `inject_mupdate: true`.
+#
+# This file exists to preserve the historical name and input surface that
+# existing callers reference. The actual build + release logic (including
+# the optional Quality gate) lives in ReleaseMudlet.yaml. New Mudlet
+# packages should prefer calling ReleaseMudlet.yaml directly and opting
+# into Mupdate via `inject_mupdate: true` if they need the auto-updater.
+#
+# About Mupdate:
+#   Mupdate is a self-updater for Mudlet packages. This workflow downloads
+#   the latest Updater.lua from https://github.com/gesslar/mupdate and
+#   splices it into your package's scripts.json at build time. For runtime
+#   integration — how to initialize it, trigger update checks, expose user
+#   commands — see the project README at the URL above.
+#
+# EXAMPLE USAGE (legacy):
+#   jobs:
+#     release:
+#       uses: gesslar/Maint/.github/workflows/ReleaseMuddyInjectMupdate.yaml@main
+#       permissions:
+#         contents: write
+#       with:
+#         quality_check: "Quality"
 
 on:
   workflow_call:
+    inputs:
+      quality_check:
+        description: "Name of the quality workflow to wait for before releasing. Empty string disables the gate."
+        type: string
+        default: ""
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  release:
+    uses: gesslar/Maint/.github/workflows/ReleaseMudlet.yaml@main
     permissions:
       contents: write
-
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Download Updater.lua
-        run: |
-          mkdir -p src/scripts
-          curl -L -o src/scripts/Updater.lua https://github.com/gesslar/mupdate/releases/latest/download/Updater.lua
-
-      - name: Check and create scripts.json if it doesn't exist
-        run: |
-          if [ ! -f src/scripts/scripts.json ]; then
-            mkdir -p src/scripts
-            echo '[]' > src/scripts/scripts.json
-          fi
-
-      - name: Update scripts.json
-        run: |
-          jq '. += [{"isActive": "yes", "isFolder": "no", "name": "Updater", "script": ""}]' src/scripts/scripts.json > tmp.json && mv tmp.json src/scripts/scripts.json
-
-      - name: Read mfile variables
-        id: mfile_vars
-        run: |
-          package=$(jq -r '.package' mfile)
-          version=$(jq -r '.version' mfile)
-          echo "package=$package" >> $GITHUB_OUTPUT
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: "create version file"
-        id: create_version_file
-        run: |
-          filename="${{ steps.mfile_vars.outputs.package }}_version.txt"
-          echo "filename=$filename" >> $GITHUB_OUTPUT
-          echo "${{ steps.mfile_vars.outputs.version }}" > "$filename"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-
-      - name: Build with muddy
-        run: npx --yes @gesslar/muddy
-
-      - uses: ncipollo/release-action@v1
-        with:
-          artifacts: "build/${{ steps.mfile_vars.outputs.package }}.mpackage,${{ steps.create_version_file.outputs.filename }}"
-          allowUpdates: true
-          bodyFile: "./README.md"
-          generateReleaseNotes: true
-          tag: ${{ steps.mfile_vars.outputs.version }}
+    with:
+      quality_check: ${{ inputs.quality_check }}
+      inject_mupdate: true
