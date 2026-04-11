@@ -43,11 +43,13 @@ jobs:
           echo "filename=$filename" >> $GITHUB_OUTPUT
           echo "${{ steps.mfile_vars.outputs.version }}" > "$filename"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
 
       - name: Build with muddy
-        run: pnpx @gesslar/muddy
+        run: npx --yes @gesslar/muddy
 
       - uses: ncipollo/release-action@v1
         with:
