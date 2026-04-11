@@ -50,8 +50,6 @@ on:
 jobs:
   WaitForQuality:
     runs-on: ubuntu-latest
-    permissions:
-      checks: read
     steps:
       - name: Resolve quality_check
         id: cfg
