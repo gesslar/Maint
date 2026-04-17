@@ -322,3 +322,16 @@ jobs:
 
       - run: ${{ needs.ConfigureWorkflow.outputs.package_manager }} test
         shell: bash
+
+  Quality:
+    needs: [ConfigureWorkflow, Lint, Test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Verify upstream jobs
+        run: |
+          set -euo pipefail
+          results='${{ toJSON(needs) }}'
+          echo "$results" | jq .
+          echo "$results" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'
