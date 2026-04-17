@@ -70,9 +70,9 @@ on:
   workflow_call:
     inputs:
       quality_check:
-        description: "Name of quality workflow to wait for"
+        description: "Name of quality check to wait for (composite: '<caller-job> / <sentinel-job>'). Empty string disables the gate."
         type: string
-        default: "Quality"
+        default: "Quality / Quality"
       git_user_name:
         type: string
         default: "github-actions"
@@ -126,7 +126,7 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.7.0
         with:
           ref: ${{ github.ref }}
-          running-workflow-name: ${{ inputs.quality_check }}
+          check-name: ${{ inputs.quality_check }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 

@@ -39,9 +39,9 @@ on:
   workflow_call:
     inputs:
       quality_check:
-        description: "Name of the quality workflow to wait for before releasing. Empty string disables the gate."
+        description: "Name of quality check to wait for (composite: '<caller-job> / <sentinel-job>'). Empty string disables the gate."
         type: string
-        default: ""
+        default: "Quality / Quality"
       inject_mupdate:
         description: "Download Updater.lua and splice it into scripts.json before building."
         type: boolean
