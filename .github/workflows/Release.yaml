@@ -61,9 +61,9 @@ on:
         type: string
         default: "auto"
       quality_check:
-        description: "Name of quality workflow to wait for"
+        description: "Name of quality check to wait for (composite name: '<caller-job> / <sentinel-job>')"
         type: string
-        default: "Quality"
+        default: "Quality / Quality"
       git_user_name:
         type: string
         default: "github-actions"
