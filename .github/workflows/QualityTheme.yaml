@@ -1,0 +1,174 @@
+# QualityTheme - Reusable Workflow
+#
+# Lints a VS Code theme source file (Sassy YAML) using @gesslar/sassy.
+# Use this for theme repositories that don't need the full Node test matrix
+# from Quality.yaml — there is no build/test phase, just a lint pass.
+#
+# The lint step runs:
+#   npx -y @gesslar/sassy@<version> lint [--strict] <theme_files>
+#
+# INPUTS:
+#   theme_files (string, required)
+#     Path(s) to the theme entry file(s) to lint. Space-separated. Globs are
+#     expanded by the shell. Example: "src/my-theme.yaml" or "themes/*.yaml".
+#
+#   strict (string, default: "no")
+#     Pass --strict to sassy lint, treating warnings as failures.
+#     Set to "yes" to enable.
+#
+#   sassy_version (string, default: "latest")
+#     npm version specifier for @gesslar/sassy (e.g. "latest", "5", "5.20.2").
+#
+#   node_version (string, default: "lts/*")
+#     Node.js version to install for running sassy.
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   All inputs can be overridden by repository variables. Set these in
+#   Settings → Secrets and variables → Actions → Variables.
+#
+#   THEME_FILES       — overrides theme_files input
+#   STRICT            — overrides strict input
+#   SASSY_VERSION     — overrides sassy_version input
+#   NODE_VERSION      — overrides node_version input
+#
+# EXAMPLE USAGE:
+#   name: Quality
+#
+#   on:
+#     workflow_dispatch:
+#     push:
+#       branches: [main]
+#     pull_request:
+#       branches: [main]
+#
+#   jobs:
+#     Quality:
+#       uses: gesslar/Maint/.github/workflows/QualityTheme.yaml@main
+#       with:
+#         theme_files: "src/my-theme.yaml"
+#         strict: "yes"
+
+name: Quality (Theme)
+
+on:
+  workflow_call:
+    inputs:
+      theme_files:
+        type: string
+        required: true
+        description: "Path(s) to theme entry file(s). Space-separated, globs allowed."
+      strict:
+        type: string
+        default: "no"
+        description: "Pass --strict to sassy lint (treat warnings as failures)."
+      sassy_version:
+        type: string
+        default: "latest"
+        description: "npm version specifier for @gesslar/sassy."
+      node_version:
+        type: string
+        default: "lts/*"
+        description: "Node.js version to install."
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      theme_files: ${{ steps.cfg.outputs.theme_files }}
+      strict: ${{ steps.cfg.outputs.strict }}
+      sassy_version: ${{ steps.cfg.outputs.sassy_version }}
+      node_version: ${{ steps.cfg.outputs.node_version }}
+      strict_flag: ${{ steps.cfg.outputs.strict_flag }}
+
+    steps:
+      - name: Configure
+        id: cfg
+        run: |
+          set -euo pipefail
+
+          # Repository variable wins, fall back to caller input.
+          THEME_FILES="${{ vars.THEME_FILES || inputs.theme_files }}"
+          STRICT="${{ vars.STRICT || inputs.strict }}"
+          SASSY_VERSION="${{ vars.SASSY_VERSION || inputs.sassy_version }}"
+          NODE_VERSION="${{ vars.NODE_VERSION || inputs.node_version }}"
+
+          if [[ -z "$THEME_FILES" ]]; then
+            echo "::error::theme_files input (or THEME_FILES variable) is required"
+            exit 1
+          fi
+
+          STRICT_FLAG=""
+          if [[ "$STRICT" = "yes" ]]; then
+            STRICT_FLAG="--strict"
+          fi
+
+          {
+            echo "theme_files=${THEME_FILES}"
+            echo "strict=${STRICT}"
+            echo "sassy_version=${SASSY_VERSION}"
+            echo "node_version=${NODE_VERSION}"
+            echo "strict_flag=${STRICT_FLAG}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat <<'EOF'
+          Quality (Theme) Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Theme Files ............. ${{ steps.cfg.outputs.theme_files }}
+          Strict .................. ${{ steps.cfg.outputs.strict }}
+          Sassy Version ........... ${{ steps.cfg.outputs.sassy_version }}
+          Node Version ............ ${{ steps.cfg.outputs.node_version }}
+          EOF
+
+  Lint:
+    needs: ConfigureWorkflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
+
+      - name: Lint theme with sassy
+        run: |
+          set -uo pipefail
+
+          SASSY="@gesslar/sassy@${{ needs.ConfigureWorkflow.outputs.sassy_version }}"
+          STRICT_FLAG="${{ needs.ConfigureWorkflow.outputs.strict_flag }}"
+          # Word-split / glob-expand the input into individual file args.
+          FILES=( ${{ needs.ConfigureWorkflow.outputs.theme_files }} )
+
+          if [[ ${#FILES[@]} -eq 0 ]]; then
+            echo "::error::theme_files matched no files"
+            exit 1
+          fi
+
+          FAILED=0
+          for file in "${FILES[@]}"; do
+            echo "::group::Linting ${file}"
+            if ! npx -y "$SASSY" lint $STRICT_FLAG "$file"; then
+              FAILED=1
+            fi
+            echo "::endgroup::"
+          done
+
+          exit $FAILED
+
+  Quality:
+    needs: [ConfigureWorkflow, Lint]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Verify upstream jobs
+        run: |
+          set -euo pipefail
+          results='${{ toJSON(needs) }}'
+          echo "$results" | jq .
+          echo "$results" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'
