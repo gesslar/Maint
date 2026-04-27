@@ -1,0 +1,408 @@
+# ReleaseMarket - Reusable Workflow
+#
+# Releases a VS Code extension when a PR is merged. Mirrors Release.yaml's flow
+# (wait for quality → bump check → tag) and then:
+#   - Builds the .vsix once and uploads it as a workflow artifact
+#   - Creates the GitHub Release with the .vsix attached
+#   - Publishes via a matrix over enabled marketplaces (VS Marketplace, Open VSX)
+#
+# Each marketplace is GATED ON TOKEN PRESENCE: ConfigureWorkflow inspects the
+# secrets and emits the matrix only for marketplaces whose token is set. If
+# neither token is configured the Publish job is skipped entirely.
+#
+# The consumer repo MUST define an npm script (default: "package") that
+# produces a .vsix in a known directory (default: "vsix/"). Typically this
+# script wraps `vsce package` along with any project-specific build steps.
+#
+# INPUTS:
+#   package_manager (string, default: "auto")
+#     Package manager to use. "auto" detects from package.json's
+#     "packageManager" field, or specify "npm" / "pnpm" explicitly.
+#
+#   quality_check (string, default: "Quality / Quality")
+#     Composite check name (<caller-job> / <sentinel-job>) to wait for.
+#     Set to empty string to skip waiting.
+#
+#   git_user_name (string, default: "github-actions")
+#   git_user_email (string, default: "github-actions@github.com")
+#     Git identity for tagging.
+#
+#   package_script (string, default: "package")
+#     npm script that builds the .vsix. Invoked as `<pm> run <package_script>`.
+#
+#   vsix_glob (string, default: "vsix/*.vsix")
+#     Glob (relative to repo root) used to locate the built .vsix file.
+#     The first matching file is used.
+#
+# REPOSITORY VARIABLES (optional):
+#   PACKAGE_MANAGER, QUALITY_CHECK, GIT_USER_NAME, GIT_USER_EMAIL,
+#   PACKAGE_SCRIPT, VSIX_GLOB — each overrides the same-named input.
+#
+# SECRETS (both optional):
+#   VSX_MARKETPLACE_ACCESS_TOKEN
+#     PAT for the Visual Studio Marketplace (used by vsce). Create at
+#     https://dev.azure.com/<org>/_usersSettings/tokens with
+#     "Marketplace > Manage". If unset, the VS Marketplace publish is skipped.
+#
+#   OVSX_ACCESS_TOKEN
+#     PAT for Open VSX. Create at https://open-vsx.org/user-settings/tokens.
+#     If unset, the Open VSX publish is skipped.
+#
+# EXAMPLE USAGE:
+#   name: Release
+#
+#   on:
+#     pull_request:
+#       types: [closed]
+#       branches: [main]
+#
+#   jobs:
+#     Release:
+#       uses: gesslar/Maint/.github/workflows/ReleaseMarket.yaml@main
+#       secrets: inherit
+
+name: ReleaseMarket (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      package_manager:
+        type: string
+        default: "auto"
+      quality_check:
+        description: "Composite check name '<caller-job> / <sentinel-job>' to wait for"
+        type: string
+        default: "Quality / Quality"
+      git_user_name:
+        type: string
+        default: "github-actions"
+      git_user_email:
+        type: string
+        default: "github-actions@github.com"
+      package_script:
+        type: string
+        default: "package"
+        description: "npm script that builds the .vsix"
+      vsix_glob:
+        type: string
+        default: "vsix/*.vsix"
+        description: "Glob to locate the built .vsix"
+    secrets:
+      VSX_MARKETPLACE_ACCESS_TOKEN:
+        required: false
+      OVSX_ACCESS_TOKEN:
+        required: false
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+
+    outputs:
+      quality_check: ${{ steps.cfg_main.outputs.quality_check }}
+      git_user_name: ${{ steps.cfg_main.outputs.git_user_name }}
+      git_user_email: ${{ steps.cfg_main.outputs.git_user_email }}
+      package_script: ${{ steps.cfg_main.outputs.package_script }}
+      vsix_glob: ${{ steps.cfg_main.outputs.vsix_glob }}
+      package_manager: ${{ steps.cfg_pm.outputs.package_manager }}
+      pm_install_cmd: ${{ steps.cfg_pm.outputs.pm_install_cmd }}
+      pm_version: ${{ steps.cfg_pm.outputs.pm_version }}
+      node_version: ${{ steps.cfg_node.outputs.node_version }}
+      publish_targets: ${{ steps.cfg_targets.outputs.publish_targets }}
+
+    steps:
+      - name: Configure workflow
+        id: cfg_main
+        run: |+
+          QUALITY_CHECK="${{ vars.QUALITY_CHECK || inputs.quality_check }}"
+          PACKAGE_MANAGER="${{ vars.PACKAGE_MANAGER || inputs.package_manager }}"
+          GIT_USER_NAME="${{ vars.GIT_USER_NAME || inputs.git_user_name }}"
+          GIT_USER_EMAIL="${{ vars.GIT_USER_EMAIL || inputs.git_user_email }}"
+          PACKAGE_SCRIPT="${{ vars.PACKAGE_SCRIPT || inputs.package_script }}"
+          VSIX_GLOB="${{ vars.VSIX_GLOB || inputs.vsix_glob }}"
+
+          {
+            echo "quality_check=${QUALITY_CHECK}"
+            echo "git_user_name=${GIT_USER_NAME}"
+            echo "git_user_email=${GIT_USER_EMAIL}"
+            echo "package_manager=${PACKAGE_MANAGER}"
+            echo "package_script=${PACKAGE_SCRIPT}"
+            echo "vsix_glob=${VSIX_GLOB}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+
+      - name: Configure Package Manager
+        id: cfg_pm
+        run: |+
+          set -euo pipefail
+
+          PM_DEFAULT="npm"
+          PACKAGE_MANAGER="${{ steps.cfg_main.outputs.package_manager }}"
+          PM_VERSION=""
+
+          if [[ "$PACKAGE_MANAGER" = "auto" ]]; then
+            PM=$(jq -r .packageManager package.json)
+
+            if [[ ! "$PM" || "$PM" = "null" ]]; then
+              PACKAGE_MANAGER="$PM_DEFAULT"
+            elif [[ "$PM" =~ ^(pnpm)@([[:digit:]]+.[[:digit:]]+.[[:digit:]]+)$ ]]; then
+              PACKAGE_MANAGER="${BASH_REMATCH[1]}"
+              PM_VERSION="${BASH_REMATCH[2]}"
+            else
+              PACKAGE_MANAGER="$PM_DEFAULT"
+            fi
+          fi
+
+          echo "package_manager=${PACKAGE_MANAGER}" >> "$GITHUB_OUTPUT"
+          echo "pm_version=${PM_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$PACKAGE_MANAGER" = "pnpm" ]]; then
+            echo "pm_install_cmd=pnpm install --frozen-lockfile" >> "$GITHUB_OUTPUT"
+          else
+            echo "pm_install_cmd=npm ci" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure Node Version
+        id: cfg_node
+        run: |+
+          set -euo pipefail
+
+          # VS Code extensions typically declare engines.vscode but not
+          # engines.node. Fall back to the active LTS in that case.
+          if ! NODE_RAW=$(jq -er '.engines.node' package.json 2>/dev/null); then
+            echo "node_version=lts/*" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$NODE_RAW" =~ [^0-9]*([0-9]+) ]]; then
+            echo "node_version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unable to parse engines.node ('${NODE_RAW}')"
+            exit 1
+          fi
+
+      - name: Configure Publish Targets
+        id: cfg_targets
+        env:
+          VSCE_TOKEN: ${{ secrets.VSX_MARKETPLACE_ACCESS_TOKEN }}
+          OVSX_TOKEN: ${{ secrets.OVSX_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TARGETS=()
+          [[ -n "${VSCE_TOKEN:-}" ]] && TARGETS+=("vsce")
+          [[ -n "${OVSX_TOKEN:-}" ]] && TARGETS+=("ovsx")
+
+          if [[ ${#TARGETS[@]} -eq 0 ]]; then
+            JSON="[]"
+          else
+            JSON=$(printf '%s\n' "${TARGETS[@]}" | jq -R . | jq -s -c .)
+          fi
+
+          echo "publish_targets=${JSON}" >> "$GITHUB_OUTPUT"
+
+      - name: Display Configuration
+        run: |+
+          cat <<EOF
+          ReleaseMarket Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Package Manager ......... ${{ steps.cfg_pm.outputs.package_manager }}
+          Install Command ......... ${{ steps.cfg_pm.outputs.pm_install_cmd }}
+          Node Version ............ ${{ steps.cfg_node.outputs.node_version }}
+          Package Script .......... ${{ steps.cfg_main.outputs.package_script }}
+          VSIX Glob ............... ${{ steps.cfg_main.outputs.vsix_glob }}
+          Publish Targets ......... ${{ steps.cfg_targets.outputs.publish_targets }}
+          EOF
+
+  WaitForQuality:
+    needs: ConfigureWorkflow
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    steps:
+      - name: Wait for Quality workflow
+        if: ${{ needs.ConfigureWorkflow.outputs.quality_check != '' }}
+        uses: lewagon/wait-on-check-action@v1.7.0
+        with:
+          ref: ${{ github.ref }}
+          check-name: ${{ needs.ConfigureWorkflow.outputs.quality_check }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  DetermineVersion:
+    needs: WaitForQuality
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check version
+        id: check_version
+        uses: gesslar/new-version-questionmark@v1.6.2
+        with:
+          source: package.json
+          version_pattern: "^v\\d+\\.\\d+\\.\\d+$"
+
+      - name: Set version output
+        id: version
+        run: |
+          UPDATED_VERSION="${{ steps.check_version.outputs.updated_version }}"
+          if [[ "$UPDATED_VERSION" == "no changes" ]]; then
+            echo "VERSION=🙅🏻‍♂️" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${UPDATED_VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+  CreateTag:
+    needs: [ConfigureWorkflow, DetermineVersion]
+    if: ${{ needs.DetermineVersion.outputs.version != '🙅🏻‍♂️' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    outputs:
+      new_tag: ${{ steps.check_tag.outputs.new_tag }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Git Identity
+        run: |
+          git config user.name "${{ needs.ConfigureWorkflow.outputs.git_user_name }}"
+          git config user.email "${{ needs.ConfigureWorkflow.outputs.git_user_email }}"
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Create tag if it does not exist
+        id: check_tag
+        run: |+
+          set -euo pipefail
+          CURRENT_VERSION="${{ needs.DetermineVersion.outputs.version }}"
+          TAG_EXISTS=$(git tag -l "v${CURRENT_VERSION}")
+
+          if [ -z "$TAG_EXISTS" ]; then
+            echo "Creating tag v${CURRENT_VERSION}"
+            git tag "v${CURRENT_VERSION}"
+            git push origin "v${CURRENT_VERSION}"
+            echo "new_tag=v${CURRENT_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag v${CURRENT_VERSION} already exists; skipping."
+            echo "new_tag=🙅🏻‍♂️" >> "$GITHUB_OUTPUT"
+          fi
+
+  Build:
+    needs: [ConfigureWorkflow, CreateTag]
+    if: ${{ needs.CreateTag.outputs.new_tag != '🙅🏻‍♂️' }}
+    runs-on: ubuntu-latest
+
+    outputs:
+      vsix_name: ${{ steps.locate.outputs.vsix_name }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
+          cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
+
+      - name: Install dependencies
+        run: ${{ needs.ConfigureWorkflow.outputs.pm_install_cmd }}
+
+      - name: Build .vsix
+        run: ${{ needs.ConfigureWorkflow.outputs.package_manager }} run ${{ needs.ConfigureWorkflow.outputs.package_script }}
+
+      - name: Locate .vsix
+        id: locate
+        run: |
+          set -euo pipefail
+          VSIX=$(ls ${{ needs.ConfigureWorkflow.outputs.vsix_glob }} 2>/dev/null | head -1)
+
+          if [[ -z "$VSIX" ]]; then
+            echo "::error::No .vsix matched glob: ${{ needs.ConfigureWorkflow.outputs.vsix_glob }}"
+            exit 1
+          fi
+
+          echo "vsix_name=$(basename "$VSIX")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ${{ needs.ConfigureWorkflow.outputs.vsix_glob }}
+          if-no-files-found: error
+          retention-days: 7
+
+  CreateGitHubRelease:
+    needs: [CreateTag, Build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      NEW_TAG: ${{ needs.CreateTag.outputs.new_tag }}
+      VSIX_NAME: ${{ needs.Build.outputs.vsix_name }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download .vsix artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix
+          path: vsix/
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "${NEW_TAG}"
+          --title "Release ${NEW_TAG}"
+          --generate-notes
+          "vsix/${VSIX_NAME}"
+
+  Publish:
+    needs: [ConfigureWorkflow, Build]
+    if: ${{ needs.ConfigureWorkflow.outputs.publish_targets != '[]' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.ConfigureWorkflow.outputs.publish_targets) }}
+
+    env:
+      VSIX_NAME: ${{ needs.Build.outputs.vsix_name }}
+
+    steps:
+      - name: Download .vsix artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix
+          path: vsix/
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
+
+      - name: Publish to VS Marketplace
+        if: matrix.target == 'vsce'
+        env:
+          VSCE_PAT: ${{ secrets.VSX_MARKETPLACE_ACCESS_TOKEN }}
+        run: npx --yes @vscode/vsce publish --packagePath "vsix/${VSIX_NAME}"
+
+      - name: Publish to Open VSX
+        if: matrix.target == 'ovsx'
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_ACCESS_TOKEN }}
+        run: npx --yes ovsx publish "vsix/${VSIX_NAME}" --pat "${OVSX_PAT}"
