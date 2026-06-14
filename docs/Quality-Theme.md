@@ -9,6 +9,11 @@ repositories that have no build or test phase — just a lint pass.
 Installs Node, then runs `npx -y @gesslar/sassy@<version> lint [--strict] <theme_files>`
 for each file you point it at. With `strict: "yes"`, warnings are treated as failures.
 
+## Requirements
+
+- Just the theme file(s) you point `theme_files` at. **No `package.json` scripts or
+  `engines` are required** — sassy runs via `npx` and Node is installed for you.
+
 ## Simplest example
 
 `theme_files` is the one required input — the path(s) to your theme entry file(s).

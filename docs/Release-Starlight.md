@@ -13,7 +13,8 @@ This is identical to [Release Docusaurus](Release-Docusaurus.md) except Starligh
 
 ## Requirements
 
-- A Starlight project directory (default `docs`) with `engines.node` in its `package.json`.
+- A Starlight project directory (default `docs`) whose `package.json` declares `engines.node`
+  and a `build` script (run as `npm run build`), with a lockfile for `npm ci`.
 - Deployment secrets configured on the repo (see below).
 
 ## Simplest example

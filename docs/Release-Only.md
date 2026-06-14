@@ -18,6 +18,12 @@ On a merged PR into `main`:
 Building artefacts is the caller's job: build them in a prior job, upload with
 `actions/upload-artifact`, then list the artifact names here.
 
+## Requirements
+
+- `package.json` with a valid `version` field (used to detect the bump and name the tag).
+- **No build/test scripts and no `engines` are required** — this workflow installs nothing
+  and runs no package scripts; any building is done in your own caller jobs.
+
 ## Simplest example
 
 Tag + release, no artefacts:

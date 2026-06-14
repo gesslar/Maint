@@ -4,6 +4,10 @@ A central home for **reusable GitHub Actions workflows**. Instead of copy-pastin
 into every repository, each project calls one of these workflows with a few lines and inherits
 the whole pipeline — quality gates, version bumping, tagging, GitHub releases, and publishing.
 
+## But, why?
+
+Because, let's face it. Creating and maintaining workflows = bitch. With my definitely-not-snake-oil-reusable workflows, you can just drop in some simple ones that pull from my things and just let things work automatically. I don't hard-code what linter you're using, I just run `npm run lint`. I don't care what test framework you're using, I just call `npm test`. All you gotta do in your package.json files is just ensure those scripts exist and also put in your `engines`. And BOOMSHAKALAKA and some very minor tweaking, you have workflows that just work and flow!
+
 ```yaml
 # .github/workflows/Quality.yaml  (in your repo)
 name: Quality
