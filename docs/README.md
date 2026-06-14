@@ -39,7 +39,7 @@ runs the whole reusable pipeline.
 | --- | --- |
 | [Quality](Quality.md) | Node.js projects: lint + test across an OS × Node-version matrix |
 | [Quality Mudlet](Quality-Mudlet.md) | Mudlet (Lua) packages: Busted specs via the `mudlet-busted` image |
-| [Quality Theme](Quality-Theme.md) | VS Code themes: lints Sassy YAML with [`/sassy`](https://www.npmjs.com/package//sassy) |
+| [Quality Theme](Quality-Theme.md) | VS Code themes: lints Sassy YAML with [`@gesslar/sassy`](https://www.npmjs.com/package/@gesslar/sassy) |
 
 ### Release (CD — tag, release, publish)
 
@@ -49,19 +49,10 @@ runs the whole reusable pipeline.
 | [Release Action](Release-Action.md) | A JavaScript **GitHub Action** with a committed `dist/` bundle |
 | [Release Only](Release-Only.md) | Ecosystem-agnostic: just tag + GitHub Release (+ optional artefacts) |
 | [Release Market](Release-Market.md) | A **VS Code extension** to the VS Marketplace and/or Open VSX |
-| [Release Mudlet](Release-Mudlet.md) | A **Mudlet** `.mpackage` built with [`/muddy`](https://www.npmjs.com/package//muddy) (optional Mupdate) |
+| [Release Mudlet](Release-Mudlet.md) | A **Mudlet** `.mpackage` built with [`@gesslar/muddy`](https://www.npmjs.com/package/@gesslar/muddy) (optional Mupdate) |
 | [Release Muddy Inject Mupdate](Release-Muddy-Inject-Mupdate.md) | Legacy alias of Release Mudlet with Mupdate always injected |
 | [Release Docusaurus](Release-Docusaurus.md) | Builds a **Docusaurus** site and deploys it via rsync/SSH |
 | [Release Starlight](Release-Starlight.md) | Builds a **Starlight** site and deploys it via rsync/SSH |
-
-### Maintenance (scheduled housekeeping)
-
-These are **standalone** workflows — you copy the file into your repo rather than `uses:`-ing it.
-
-| Workflow | What it does |
-| --- | --- |
-| [Dependabot Auto Comment](Dependabot-Auto-Comment.md) | Auto-merges Dependabot PRs on a schedule |
-| [Workflow Cleanup](Workflow-Cleanup.md) | Deletes old workflow runs on a schedule |
 
 ## Conventions shared across these workflows
 
