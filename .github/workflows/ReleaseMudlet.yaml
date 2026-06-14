@@ -66,6 +66,7 @@ jobs:
           check-name: ${{ steps.cfg.outputs.quality_check }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
+          checks-discovery-timeout: 300
 
   build:
     needs: WaitForQuality
