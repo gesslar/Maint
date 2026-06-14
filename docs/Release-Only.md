@@ -44,8 +44,17 @@ jobs:
 The caller builds and uploads; this workflow downloads and attaches everything.
 
 ```yaml
+# .github/workflows/Release.yaml
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
 jobs:
   build:
+    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

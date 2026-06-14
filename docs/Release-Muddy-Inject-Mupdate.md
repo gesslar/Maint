@@ -33,9 +33,6 @@ jobs:
 The Quality gate runs by default (waiting for `Quality / Quality`); add
 `with: { quality_check: "" }` to disable it.
 
-The Quality gate runs by default (waiting for `Quality / Quality`); add
-`with: { quality_check: "" }` to disable it.
-
 ## Inputs
 
 | Input | Default | Description |
