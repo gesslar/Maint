@@ -22,7 +22,7 @@ name: Build Mudlet package with Mupdate and publish release
 #       permissions:
 #         contents: write
 #       with:
-#         quality_check: "Quality"
+#         quality_check: "Quality / Quality"
 
 on:
   workflow_call:

@@ -9,8 +9,8 @@
 # and attaches them to the release.
 #
 # INPUTS:
-#   quality_check (string, default: "Quality")
-#     Name of the quality workflow to wait for before proceeding with release.
+#   quality_check (string, default: "Quality / Quality")
+#     Name of the quality check to wait for (composite: '<caller-job> / <sentinel-job>').
 #     Set to empty string "" to skip waiting for quality checks.
 #
 #   git_user_name (string, default: "github-actions")
@@ -43,7 +43,7 @@
 #     release:
 #       uses: ./.github/workflows/ReleaseOnly.yaml
 #       with:
-#         quality_check: "Quality"
+#         quality_check: "Quality / Quality"
 #
 #   # With artefacts — caller builds, this workflow attaches:
 #   jobs:
@@ -61,7 +61,7 @@
 #       needs: build
 #       uses: ./.github/workflows/ReleaseOnly.yaml
 #       with:
-#         quality_check: "Quality"
+#         quality_check: "Quality / Quality"
 #         artefacts: '["extension"]'
 
 name: Release Only (Reusable)

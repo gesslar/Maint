@@ -29,7 +29,7 @@ and repository-variable overrides.
 
 - [Quality](docs/Quality.md) — Node.js lint + test across an OS × Node-version matrix
 - [Quality (Mudlet)](docs/Quality-Mudlet.md) — Mudlet (Lua) Busted specs
-- [Quality (Theme)](docs/Quality-Theme.md) — VS Code theme linting with `@gesslar/sassy`
+- [Quality (Theme)](docs/Quality-Theme.md) — VS Code theme linting with [`@gesslar/sassy`](https://www.npmjs.com/package//sassy)
 
 ### Release (CD — tag, release, publish)
 
@@ -37,7 +37,7 @@ and repository-variable overrides.
 - [Release Action](docs/Release-Action.md) — a JavaScript GitHub Action with committed `dist/`
 - [Release Only](docs/Release-Only.md) — ecosystem-agnostic tag + release (+ optional artefacts)
 - [Release Market](docs/Release-Market.md) — a VS Code extension to VS Marketplace / Open VSX
-- [Release Mudlet](docs/Release-Mudlet.md) — a Mudlet `.mpackage` built with `muddy`
+- [Release Mudlet](docs/Release-Mudlet.md) — a Mudlet `.mpackage` built with [`@gesslar/muddy`](https://www.npmjs.com/package//muddy)
 - [Release Muddy Inject Mupdate](docs/Release-Muddy-Inject-Mupdate.md) — legacy Mudlet + Mupdate alias
 - [Release Docusaurus](docs/Release-Docusaurus.md) — build a Docusaurus site, deploy via rsync/SSH
 - [Release Starlight](docs/Release-Starlight.md) — build a Starlight site, deploy via rsync/SSH

@@ -4,10 +4,11 @@ name: Build Mudlet package and publish release
 # publishes a GitHub release with the resulting .mpackage. Optionally gates
 # on a Quality workflow and/or injects Mupdate.
 #
-# Optional quality gate:
-#   Pass `quality_check` (or set the QUALITY_CHECK repo variable) to the name
-#   of a workflow that must complete before the release proceeds. Empty
-#   string (the default) disables the gate.
+# Quality gate:
+#   By default the release waits for the `Quality / Quality` check to pass
+#   before proceeding. Override `quality_check` (or the QUALITY_CHECK repo
+#   variable) to wait for a differently-named check, or set it to an empty
+#   string to disable the gate.
 #
 # Optional Mupdate injection:
 #   Pass `inject_mupdate: true` to download the latest Updater.lua from
@@ -32,7 +33,7 @@ name: Build Mudlet package and publish release
 #       permissions:
 #         contents: write
 #       with:
-#         quality_check: "Quality"
+#         quality_check: "Quality / Quality"
 #         inject_mupdate: false
 
 on:
