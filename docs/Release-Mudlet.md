@@ -1,25 +1,25 @@
 # Release Mudlet
 
-Builds a **Mudlet package** with [`muddy`](https://github.com/gesslar/muddy) and publishes a
+Builds a **Mudlet package** with [`@gesslar/muddy`](https://www.npmjs.com/package/@gesslar/muddy) and publishes a
 GitHub Release with the resulting `.mpackage`. Optionally gates on a Quality workflow and
 optionally injects [Mupdate](https://github.com/gesslar/mupdate) (a self-updater for Mudlet
 packages).
 
 ## What it does
 
-1. **Optional quality gate** — if `quality_check` (or the `QUALITY_CHECK` variable) is set to
-   a workflow name, that workflow must complete first. Empty string (the default behaviour
-   here) disables the gate.
+1. **Quality gate** — by default it waits for the `Quality / Quality` check to pass before
+   releasing. Point `quality_check` (or the `QUALITY_CHECK` variable) at a different check
+   name to change it, or set it to an empty string (`""`) to disable the gate.
 2. **Optional Mupdate injection** — with `inject_mupdate: true`, it downloads the latest
    `Updater.lua` from `gesslar/mupdate` and splices it into `scripts.json` before building.
-3. Reads `package` and `version` from your `mfile`, builds with `muddy`, and publishes a
+3. Reads `package` and `version` from your `mfile`, builds with `@gesslar/muddy`, and publishes a
    GitHub Release tagged with the version, attaching the `.mpackage` and a version file.
 
 ## Requirements
 
 - An `mfile` with `package` and `version` fields.
 - A `README.md` (used as the release body).
-- Source laid out for `muddy` (e.g. `src/scripts/`).
+- Source laid out for `@gesslar/muddy` (e.g. `src/scripts/`).
 
 ## Simplest example
 
@@ -40,7 +40,10 @@ jobs:
       contents: write
 ```
 
-## With a quality gate and Mupdate
+## With Mupdate injection
+
+The Quality gate already runs by default (it waits for `Quality / Quality`), so the only
+thing to add is Mupdate:
 
 ```yaml
 jobs:
@@ -49,9 +52,11 @@ jobs:
     permissions:
       contents: write
     with:
-      quality_check: "Quality"
       inject_mupdate: true
 ```
+
+To disable the gate, add `quality_check: ""`; to point at a differently-named check, set it
+to that exact composite name.
 
 ## Inputs
 

@@ -39,7 +39,7 @@ runs the whole reusable pipeline.
 | --- | --- |
 | [Quality](Quality.md) | Node.js projects: lint + test across an OS × Node-version matrix |
 | [Quality Mudlet](Quality-Mudlet.md) | Mudlet (Lua) packages: Busted specs via the `mudlet-busted` image |
-| [Quality Theme](Quality-Theme.md) | VS Code themes: lints Sassy YAML with `@gesslar/sassy` |
+| [Quality Theme](Quality-Theme.md) | VS Code themes: lints Sassy YAML with [`/sassy`](https://www.npmjs.com/package//sassy) |
 
 ### Release (CD — tag, release, publish)
 
@@ -49,7 +49,7 @@ runs the whole reusable pipeline.
 | [Release Action](Release-Action.md) | A JavaScript **GitHub Action** with a committed `dist/` bundle |
 | [Release Only](Release-Only.md) | Ecosystem-agnostic: just tag + GitHub Release (+ optional artefacts) |
 | [Release Market](Release-Market.md) | A **VS Code extension** to the VS Marketplace and/or Open VSX |
-| [Release Mudlet](Release-Mudlet.md) | A **Mudlet** `.mpackage` built with `muddy` (optional Mupdate) |
+| [Release Mudlet](Release-Mudlet.md) | A **Mudlet** `.mpackage` built with [`/muddy`](https://www.npmjs.com/package//muddy) (optional Mupdate) |
 | [Release Muddy Inject Mupdate](Release-Muddy-Inject-Mupdate.md) | Legacy alias of Release Mudlet with Mupdate always injected |
 | [Release Docusaurus](Release-Docusaurus.md) | Builds a **Docusaurus** site and deploys it via rsync/SSH |
 | [Release Starlight](Release-Starlight.md) | Builds a **Starlight** site and deploys it via rsync/SSH |

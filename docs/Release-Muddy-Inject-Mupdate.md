@@ -8,7 +8,7 @@
 ## What it does
 
 Delegates entirely to [Release Mudlet](Release-Mudlet.md), always injecting Mupdate — it downloads the latest
-`Updater.lua` from `gesslar/mupdate`, splices it into `scripts.json`, builds with `muddy`,
+`Updater.lua` from `gesslar/mupdate`, splices it into `scripts.json`, builds with [`/muddy`](https://www.npmjs.com/package//muddy),
 and publishes the GitHub Release. The optional quality gate is forwarded through.
 
 ## Simplest example (legacy callers)
@@ -28,9 +28,10 @@ jobs:
     uses: gesslar/Maint/.github/workflows/ReleaseMuddyInjectMupdate.yaml@main
     permissions:
       contents: write
-    with:
-      quality_check: "Quality"
 ```
+
+The Quality gate runs by default (waiting for `Quality / Quality`); add
+`with: { quality_check: "" }` to disable it.
 
 ## Inputs
 

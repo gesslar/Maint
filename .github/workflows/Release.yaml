@@ -9,8 +9,8 @@
 #     Package manager to use. Set to "auto" to detect from package.json, or specify
 #     "npm" or "pnpm" explicitly.
 #
-#   quality_check (string, default: "Quality")
-#     Name of the quality workflow to wait for before proceeding with release.
+#   quality_check (string, default: "Quality / Quality")
+#     Name of the quality check to wait for (composite: '<caller-job> / <sentinel-job>').
 #     Set to empty string "" to skip waiting for quality checks.
 #
 #   git_user_name (string, default: "github-actions")
@@ -46,7 +46,7 @@
 #     release:
 #       uses: ./.github/workflows/Release.yaml
 #       with:
-#         quality_check: "Quality"
+#         quality_check: "Quality / Quality"
 #         git_user_name: "github-actions"
 #         git_user_email: "github-actions@github.com"
 #       secrets:
