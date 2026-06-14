@@ -4,8 +4,8 @@
 
 OK, Maint derives its name from the fact that its first ever two workflows were legitimate maintenance workflows. And they're still here, but they're not really intended to be re-used in a compositional way. You can copy/pasta them into your own repos if you want to. They're
 
-- **[WorkflowCleanup.yaml](.github/workflows/WorkflowCleanup.yaml)** - Trawl all your repos and delete old workflow runs. Necessary for me because I have more than 3 repos (😏), but for you? idk. You probably have a sane number.
-- **[DependabotAutoComment.yaml](.github/workflows/DependabotAutoComment.yaml)** - Whenever you get a Dependabot thingie that says "Hey, just so you know, ESLint bumped something. Yes, we know they bumped it 20 minutes ago, but this one is different, _they swear_, also, another one's coming before you finish merging this one." and you get these emails and calls-to-action in your Inbox because you have uhh more than 3 repos, then this will save you some time. Or it saves me some anyway.
+- **[WorkflowCleanup.yaml](../.github/workflows/WorkflowCleanup.yaml)** - Trawl all your repos and delete old workflow runs. Necessary for me because I have more than 3 repos (😏), but for you? idk. You probably have a sane number.
+- **[DependabotAutoComment.yaml](../.github/workflows/DependabotAutoComment.yaml)** - Whenever you get a Dependabot thingie that says "Hey, just so you know, ESLint bumped something. Yes, we know they bumped it 20 minutes ago, but this one is different, _they swear_, also, another one's coming before you finish merging this one." and you get these emails and calls-to-action in your Inbox because you have uhh more than 3 repos, then this will save you some time. Or it saves me some anyway.
 
 > *It's worth noting that if you're going to use the above workflows, which I both encourage and discourage, for entirely separate reasons and no, I have no responses, that you should put them in a single repo to govern your empire of repositories. You could even call it `Maint`. You don't have to. But you could. IJS.*
 
