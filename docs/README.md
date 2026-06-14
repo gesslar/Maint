@@ -1,5 +1,18 @@
 # Maint — Reusable GitHub Actions Workflows
 
+## Introducing `Maint` an unlikely named repo from a downstream perspective
+
+OK, Maint derives its name from the fact that its first ever two workflows were legitimate maintenance workflows. And they're still here, but they're not really intended to be re-used in a compositional way. You can copy/pasta them into your own repos if you want to. They're
+
+- **[WorkflowCleanup.yaml](.github/workflows/WorkflowCleanup.yaml)** - Trawl all your repos and delete old workflow runs. Necessary for me because I have more than 3 repos (😏), but for you? idk. You probably have a sane number.
+- **[DependabotAutoComment.yaml](.github/workflows/DependabotAutoComment.yaml)** - Whenever you get a Dependabot thingie that says "Hey, just so you know, ESLint bumped something. Yes, we know they bumped it 20 minutes ago, but this one is different, _they swear_, also, another one's coming before you finish merging this one." and you get these emails and calls-to-action in your Inbox because you have uhh more than 3 repos, then this will save you some time. Or it saves me some anyway.
+
+> *It's worth noting that if you're going to use the above workflows, which I both encourage and discourage, for entirely separate reasons and no, I have no responses, that you should put them in a single repo to govern your empire of repositories. You could even call it `Maint`. You don't have to. But you could. IJS.*
+
+Everything else in this repo is not _maintenance_ in the broom-and-dustpan-y or rubber-stamp-y sense, but could also be interpreted as _maintenance_ in the sense of low maintenance workflows for you and your cat. It's a stretch, but, I'm fine with it. And so should you.
+
+## Description of the things
+
 `gesslar/Maint` is a central home for **reusable GitHub Actions workflows**. Instead of
 copy-pasting CI/CD YAML into every repository, each project calls one of these workflows
 with a few lines and inherits the whole pipeline — quality gates, version bumping, tagging,
