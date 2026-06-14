@@ -5,10 +5,17 @@
 # ecosystem-agnostic and attaches pre-built artefacts), this workflow is purpose-built
 # for Actions that ship a bundled `dist/` committed to the repository.
 #
-# It waits for quality checks, determines if a version bump occurred, builds the action
-# bundle, commits the freshly built bundle back to main, and ONLY THEN creates the git
-# tag and GitHub release. Tagging after the build commit guarantees that consumers who
-# pin `uses: owner/action@vX.Y.Z` get the dist that matches that version.
+# It waits for quality checks, determines if a version bump occurred, rebuilds the action
+# bundle, and verifies that the bundle committed to the repository is already up to date.
+# If it is stale, the release FAILS (rebuild locally and commit before releasing) — the
+# workflow never writes to your default branch, so a release can never surprise you with a
+# commit you then have to pull. Only once the bundle is verified does it create the git tag
+# and GitHub release, guaranteeing consumers who pin `uses: owner/action@vX.Y.Z` get the
+# dist that matches that version.
+#
+# Build the bundle locally and commit it as part of your version bump. The recommended way
+# is an npm "version" lifecycle hook, e.g.:
+#   "scripts": { "version": "npm run build && git add dist" }
 #
 # INPUTS:
 #   package_manager (string, default: "auto")
@@ -291,19 +298,19 @@ jobs:
         if: ${{ steps.check_tag.outputs.proceed == 'true' }}
         run: ${{ needs.ConfigureWorkflow.outputs.package_manager }} run ${{ needs.ConfigureWorkflow.outputs.build_command }}
 
-      - name: Commit built action
+      - name: Verify built action is up to date
         if: ${{ steps.check_tag.outputs.proceed == 'true' }}
         run: |+
           DIST_PATH="${{ needs.ConfigureWorkflow.outputs.dist_path }}"
 
-          git add "$DIST_PATH"
-
-          if git diff --cached --quiet; then
-            echo "No changes in ${DIST_PATH}; nothing to commit."
-          else
-            git commit -m "Build ${DIST_PATH} for v${VERSION}"
-            git push origin main
+          if [ -n "$(git status --porcelain -- "$DIST_PATH")" ]; then
+            echo "::error::${DIST_PATH} is out of date with the source. Run the build locally and commit the result before releasing."
+            git --no-pager diff --stat -- "$DIST_PATH"
+            git status --porcelain -- "$DIST_PATH"
+            exit 1
           fi
+
+          echo "${DIST_PATH} is up to date."
 
       - name: Create and push tag
         if: ${{ steps.check_tag.outputs.proceed == 'true' }}
