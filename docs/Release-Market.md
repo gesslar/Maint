@@ -36,6 +36,7 @@ on:
 
 jobs:
   Release:
+    if: ${{ github.event.pull_request.merged == true }}
     uses: gesslar/Maint/.github/workflows/ReleaseMarket.yaml@main
     secrets: inherit
     permissions:
