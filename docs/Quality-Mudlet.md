@@ -8,7 +8,7 @@ matrix and linting, which don't apply to Lua delivered through Mudlet.
 
 A single `npm test` invocation inside the `mudlet-busted` image:
 
-1. Builds the package with [`/muddy`](https://www.npmjs.com/package//muddy) (reads `mfile`, `scripts.json`, etc.).
+1. Builds the package with [`@gesslar/muddy`](https://www.npmjs.com/package/@gesslar/muddy) (reads `mfile`, `scripts.json`, etc.).
 2. Installs the built `.mpackage` into a throwaway Mudlet profile.
 3. Runs Busted specs from `src/resources/test/`.
 
