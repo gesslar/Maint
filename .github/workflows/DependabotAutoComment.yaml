@@ -1,3 +1,21 @@
+# Auto-merge Dependabot PRs
+#
+# Enables GitHub native auto-merge on every open Dependabot PR across the
+# owner's repositories, so each PR merges once its required checks pass.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   DEPENDABOT_MERGE_TYPE    - merge command to use: merge | rebase | squash
+#   DEPENDABOT_IGNORE_REPOS  - CSV of repo names (not owner/repo) to skip.
+#                              Use this for repos where auto-merge cannot be
+#                              enabled, e.g. PRIVATE repos on a free GitHub plan
+#                              (auto-merge on private repos requires a paid plan).
+#                              `gh pr merge --auto` errors on such repos, so they
+#                              must be excluded here to keep the run green.
+#                              Example: "bin,JWTValidator,threshold-docs"
+#
+# To stop ignoring a repo, remove its name from the DEPENDABOT_IGNORE_REPOS
+# variable in Maint - no workflow edit required.
+
 name: Auto-merge Dependabot PRs
 
 on:
@@ -14,3 +32,4 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_MAINT }}
           merge-type: ${{ vars.DEPENDABOT_MERGE_TYPE }}
+          ignore-repositories: ${{ vars.DEPENDABOT_IGNORE_REPOS }}
