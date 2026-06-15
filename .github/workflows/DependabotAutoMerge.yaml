@@ -24,10 +24,10 @@ on:
   workflow_dispatch: # Manual trigger
 
 jobs:
-  auto-comment:
+  auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Run Dependabot Auto Comment Action
+      - name: Run Dependabot Auto Merge Action
         uses: gesslar/dependabot-auto-merge@main
         with:
           token: ${{ secrets.WORKFLOW_MAINT }}
