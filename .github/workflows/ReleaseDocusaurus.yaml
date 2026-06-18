@@ -73,7 +73,7 @@ jobs:
           echo "docs_directory=${DOCS_DIRECTORY}" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure Node Version
         id: cfg_node
@@ -112,7 +112,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

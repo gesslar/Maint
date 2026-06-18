@@ -106,7 +106,7 @@ jobs:
           echo "pm_default=npm" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure Package Manager
         id: cfg_pm
@@ -200,7 +200,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -233,7 +233,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
@@ -299,7 +299,7 @@ jobs:
           echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_ENV
 
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
@@ -348,7 +348,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
