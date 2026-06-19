@@ -50,7 +50,7 @@
 #     build:
 #       runs-on: ubuntu-latest
 #       steps:
-#         - uses: actions/checkout@v6
+#         - uses: actions/checkout@v7
 #         - run: npm ci && vsce package
 #         - uses: actions/upload-artifact@v4
 #           with:
@@ -138,7 +138,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -171,7 +171,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Git Variables
         run: |+
@@ -213,7 +213,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download artefacts
         if: ${{ needs.ConfigureWorkflow.outputs.artefacts != '[]' }}

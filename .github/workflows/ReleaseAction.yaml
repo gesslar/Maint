@@ -123,7 +123,7 @@ jobs:
           echo "pm_default=npm" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure Package Manager
         id: cfg_pm
@@ -219,7 +219,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -254,7 +254,7 @@ jobs:
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0

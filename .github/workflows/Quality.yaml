@@ -103,7 +103,7 @@ jobs:
           echo "pm_default=npm" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure Package Manager
         id: cfg_pm
@@ -276,7 +276,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
@@ -304,7 +304,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         if: ${{ needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
