@@ -189,7 +189,7 @@ jobs:
 
       - name: Check version
         id: check_version
-        uses: gesslar/new-version-questionmark@v1.7.0
+        uses: gesslar/new-version-questionmark@main
         with:
           source: ${{ needs.ConfigureWorkflow.outputs.version_source }}
           version_pattern: "^v\\d+\\.\\d+\\.\\d+$"
