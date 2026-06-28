@@ -177,7 +177,7 @@ jobs:
           checks-discovery-timeout: 300
 
   DetermineVersion:
-    needs: WaitForQuality
+    needs: [ConfigureWorkflow, WaitForQuality]
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.merged == true }}
     outputs:
