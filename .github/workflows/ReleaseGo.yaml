@@ -1,0 +1,361 @@
+# Release (Go) - Reusable Workflow
+#
+# Builds a Go module into cross-compiled artefacts and publishes a GitHub Release when a
+# version bump lands on main. Same flow as the other Release workflows — wait for quality,
+# detect a version change, tag, release — but it cross-compiles the binary for every target
+# itself (CGO disabled, so one ubuntu runner builds Linux/Windows/macOS from source).
+#
+# The version is read from a plain VERSION file in the repo root (no package.json needed).
+# Bump it in your PR and merge → tag + release. No bump → nothing happens.
+#
+# INPUTS:
+#   quality_check (string, default: "Quality / Quality")
+#     Name of the quality check to wait for (composite: '<caller-job> / <sentinel-job>').
+#     Empty string "" skips waiting.
+#
+#   version_source (string, default: "VERSION")
+#     File whose contents are the current version (trimmed). Bumping it triggers a release.
+#
+#   main_package (string, default: ".")
+#     Import path of the main package to build (e.g. "." or "./cmd/foo").
+#
+#   binary_name (string, default: "")
+#     Name of the output binary. Empty derives it from the module path in go.mod.
+#
+#   targets (string, default: all six below)
+#     JSON array of {goos, goarch} objects to build. Override to add/remove targets.
+#     Default: linux/amd64, linux/arm64, windows/amd64, windows/arm64, darwin/amd64, darwin/arm64.
+#
+#   go_version (string, default: "")
+#     Go version for setup-go. Empty reads from go.mod.
+#
+#   ldflags (string, default: "-s -w")
+#     Linker flags passed to `go build -ldflags`.
+#
+#   version_ldflag (string, default: "")
+#     If set (e.g. "main.version"), appends -X '<version_ldflag>=v<VERSION>' to ldflags so
+#     the binary can report its version.
+#
+#   cgo_enabled (string, default: "0")
+#     Value of CGO_ENABLED during the build. Keep "0" for static cross-compilation.
+#
+#   git_user_name (string, default: "github-actions")
+#   git_user_email (string, default: "github-actions@github.com")
+#     Git identity used to create the tag.
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   QUALITY_CHECK, VERSION_SOURCE, MAIN_PACKAGE, BINARY_NAME, TARGETS, GO_VERSION,
+#   GIT_USER_NAME, GIT_USER_EMAIL — override the matching input if set.
+#
+# EXAMPLE USAGE:
+#   # .github/workflows/Release.yaml (in YOUR repo)
+#   on:
+#     pull_request:
+#       types: [closed]
+#       branches: [main]
+#
+#   jobs:
+#     Release:
+#       uses: gesslar/Maint/.github/workflows/ReleaseGo.yaml@main
+#       with:
+#         main_package: "./cmd/mytool"
+#         version_ldflag: "main.version"
+
+name: Release (Go)
+
+on:
+  workflow_call:
+    inputs:
+      quality_check:
+        description: "Name of quality check to wait for (composite: '<caller-job> / <sentinel-job>'). Empty disables the gate."
+        type: string
+        default: "Quality / Quality"
+      version_source:
+        type: string
+        default: "VERSION"
+      main_package:
+        type: string
+        default: "."
+      binary_name:
+        type: string
+        default: ""
+      targets:
+        type: string
+        default: '[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"arm64"},{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"arm64"},{"goos":"darwin","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"}]'
+      go_version:
+        type: string
+        default: ""
+      ldflags:
+        type: string
+        default: "-s -w"
+      version_ldflag:
+        type: string
+        default: ""
+      cgo_enabled:
+        type: string
+        default: "0"
+      git_user_name:
+        type: string
+        default: "github-actions"
+      git_user_email:
+        type: string
+        default: "github-actions@github.com"
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+    outputs:
+      quality_check: ${{ steps.cfg.outputs.quality_check }}
+      version_source: ${{ steps.cfg.outputs.version_source }}
+      main_package: ${{ steps.cfg.outputs.main_package }}
+      binary_name: ${{ steps.cfg.outputs.binary_name }}
+      targets: ${{ steps.cfg.outputs.targets }}
+      go_version: ${{ steps.cfg.outputs.go_version }}
+      ldflags: ${{ steps.cfg.outputs.ldflags }}
+      version_ldflag: ${{ steps.cfg.outputs.version_ldflag }}
+      cgo_enabled: ${{ steps.cfg.outputs.cgo_enabled }}
+      git_user_name: ${{ steps.cfg.outputs.git_user_name }}
+      git_user_email: ${{ steps.cfg.outputs.git_user_email }}
+
+    steps:
+      - name: Configure workflow
+        id: cfg
+        run: |
+          set -euo pipefail
+          {
+            echo "quality_check=${{ vars.QUALITY_CHECK || inputs.quality_check }}"
+            echo "version_source=${{ vars.VERSION_SOURCE || inputs.version_source }}"
+            echo "main_package=${{ vars.MAIN_PACKAGE || inputs.main_package }}"
+            echo "binary_name=${{ vars.BINARY_NAME || inputs.binary_name }}"
+            echo "go_version=${{ vars.GO_VERSION || inputs.go_version }}"
+            echo "version_ldflag=${{ inputs.version_ldflag }}"
+            echo "cgo_enabled=${{ inputs.cgo_enabled }}"
+            echo "git_user_name=${{ vars.GIT_USER_NAME || inputs.git_user_name }}"
+            echo "git_user_email=${{ vars.GIT_USER_EMAIL || inputs.git_user_email }}"
+          } >> "$GITHUB_OUTPUT"
+
+          # ldflags and targets may contain special characters / be multiline-unsafe — emit
+          # them with a heredoc-style delimiter.
+          {
+            echo "ldflags<<__EOF__"
+            echo "${{ inputs.ldflags }}"
+            echo "__EOF__"
+            echo "targets<<__EOF__"
+            echo '${{ vars.TARGETS || inputs.targets }}'
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Display Configuration
+        run: |
+          cat <<EOF
+          Release (Go) Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Quality Check ........... ${{ steps.cfg.outputs.quality_check }}
+          Version Source .......... ${{ steps.cfg.outputs.version_source }}
+          Main Package ............ ${{ steps.cfg.outputs.main_package }}
+          Binary Name ............. ${{ steps.cfg.outputs.binary_name || 'from go.mod' }}
+          Go Version .............. ${{ steps.cfg.outputs.go_version || 'from go.mod' }}
+          CGO_ENABLED ............. ${{ steps.cfg.outputs.cgo_enabled }}
+          ldflags ................. ${{ steps.cfg.outputs.ldflags }}
+          version_ldflag .......... ${{ steps.cfg.outputs.version_ldflag || '<none>' }}
+          Targets ................. ${{ steps.cfg.outputs.targets }}
+          EOF
+
+  WaitForQuality:
+    needs: ConfigureWorkflow
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    steps:
+      - name: Wait for Quality workflow
+        if: ${{ needs.ConfigureWorkflow.outputs.quality_check != '' }}
+        uses: lewagon/wait-on-check-action@v1.8.0
+        with:
+          ref: ${{ github.ref }}
+          check-name: ${{ needs.ConfigureWorkflow.outputs.quality_check }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+          checks-discovery-timeout: 300
+
+  DetermineVersion:
+    needs: WaitForQuality
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check version
+        id: check_version
+        uses: gesslar/new-version-questionmark@v1.7.0
+        with:
+          source: ${{ needs.ConfigureWorkflow.outputs.version_source }}
+          version_pattern: "^v\\d+\\.\\d+\\.\\d+$"
+
+      - name: Set version output
+        id: version
+        run: |
+          UPDATED_VERSION="${{ steps.check_version.outputs.updated_version }}"
+          if [[ "$UPDATED_VERSION" == "no changes" ]]; then
+            echo "VERSION=🙅🏻‍♂️" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${UPDATED_VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+  CreateTag:
+    needs: [ConfigureWorkflow, DetermineVersion]
+    if: ${{ needs.DetermineVersion.outputs.version != '🙅🏻‍♂️' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.check_tag.outputs.new_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Git Variables
+        run: |
+          git config user.name "${{ needs.ConfigureWorkflow.outputs.git_user_name }}"
+          git config user.email "${{ needs.ConfigureWorkflow.outputs.git_user_email }}"
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Check for existing tag and create if it does not exist
+        id: check_tag
+        run: |
+          CURRENT_VERSION="${{ needs.DetermineVersion.outputs.version }}"
+          TAG_EXISTS=$(git tag -l "v${CURRENT_VERSION}")
+
+          echo "Value of TAG_EXISTS: $TAG_EXISTS"
+
+          if [ -z "$TAG_EXISTS" ]; then
+            echo "Tag does not exist for version v${CURRENT_VERSION}. Creating tag."
+            git tag "v${CURRENT_VERSION}"
+            git push origin "v${CURRENT_VERSION}"
+            echo "new_tag=v${CURRENT_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag already exists for version v${CURRENT_VERSION}. Skipping tag creation."
+            echo "new_tag=🙅🏻‍♂️" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+  Build:
+    needs: [ConfigureWorkflow, DetermineVersion, CreateTag]
+    if: ${{ needs.CreateTag.outputs.new_tag != '🙅🏻‍♂️' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        target: ${{ fromJSON(needs.ConfigureWorkflow.outputs.targets) }}
+    env:
+      VERSION: ${{ needs.DetermineVersion.outputs.version }}
+      GOOS: ${{ matrix.target.goos }}
+      GOARCH: ${{ matrix.target.goarch }}
+      CGO_ENABLED: ${{ needs.ConfigureWorkflow.outputs.cgo_enabled }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ needs.ConfigureWorkflow.outputs.go_version }}
+          go-version-file: go.mod
+
+      - name: Build and package
+        run: |
+          set -euo pipefail
+
+          BIN="${{ needs.ConfigureWorkflow.outputs.binary_name }}"
+          if [[ -z "$BIN" ]]; then
+            BIN=$(go list -m | awk -F/ '{print $NF}')
+          fi
+
+          LDFLAGS="${{ needs.ConfigureWorkflow.outputs.ldflags }}"
+          VERSION_LDFLAG="${{ needs.ConfigureWorkflow.outputs.version_ldflag }}"
+          if [[ -n "$VERSION_LDFLAG" ]]; then
+            LDFLAGS="${LDFLAGS} -X ${VERSION_LDFLAG}=v${VERSION}"
+          fi
+
+          EXT=""
+          ARCHIVE="tar.gz"
+          if [[ "$GOOS" == "windows" ]]; then
+            EXT=".exe"
+            ARCHIVE="zip"
+          fi
+
+          mkdir -p dist
+          OUT="${BIN}${EXT}"
+          echo "Building ${OUT} for ${GOOS}/${GOARCH} (CGO_ENABLED=${CGO_ENABLED})"
+          go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${OUT}" "${{ needs.ConfigureWorkflow.outputs.main_package }}"
+
+          NAME="${BIN}_v${VERSION}_${GOOS}_${GOARCH}"
+          cd dist
+          if [[ "$ARCHIVE" == "zip" ]]; then
+            zip "${NAME}.zip" "${OUT}"
+          else
+            tar -czf "${NAME}.tar.gz" "${OUT}"
+          fi
+          rm -f "${OUT}"
+          echo "Packaged dist/${NAME}.${ARCHIVE}"
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target.goos }}-${{ matrix.target.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  CreateGitHubRelease:
+    needs: [ConfigureWorkflow, CreateTag, Build]
+    runs-on: ubuntu-latest
+    if: ${{ needs.CreateTag.outputs.new_tag != '🙅🏻‍♂️' }}
+    permissions:
+      contents: write
+    env:
+      NEW_TAG: ${{ needs.CreateTag.outputs.new_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download artefacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          shopt -s nullglob
+          FILES=( * )
+          shopt -u nullglob
+          if [[ ${#FILES[@]} -eq 0 ]]; then
+            echo "::error::No artefacts were downloaded — nothing to release."
+            exit 1
+          fi
+          sha256sum "${FILES[@]}" > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            "${NEW_TAG}"
+            --title "Release ${NEW_TAG}"
+            --generate-notes
+          )
+          for f in dist/*; do
+            echo "Attaching artefact: $f"
+            ARGS+=( "$f" )
+          done
+
+          set -x
+          gh release create "${ARGS[@]}"

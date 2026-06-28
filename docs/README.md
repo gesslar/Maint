@@ -51,6 +51,7 @@ runs the whole reusable pipeline.
 | Workflow | What it checks |
 | --- | --- |
 | [Quality](Quality.md) | Node.js projects: lint + test across an OS × Node-version matrix |
+| [Quality Go](Quality-Go.md) | Go modules: gofmt + go vet + optional golangci-lint, `go test` across an OS matrix |
 | [Quality Mudlet](Quality-Mudlet.md) | Mudlet (Lua) packages: Busted specs via the `mudlet-busted` image |
 | [Quality Theme](Quality-Theme.md) | VS Code themes: lints Sassy YAML with [`@gesslar/sassy`](https://www.npmjs.com/package/@gesslar/sassy) |
 
@@ -60,6 +61,7 @@ runs the whole reusable pipeline.
 | --- | --- |
 | [Release](Release.md) | Publishes a package to **npm** + GitHub Release |
 | [Release Action](Release-Action.md) | A JavaScript **GitHub Action** with a committed `dist/` bundle |
+| [Release Go](Release-Go.md) | A **Go** module cross-compiled to Linux/Windows/macOS binaries, attached to a GitHub Release |
 | [Release Only](Release-Only.md) | Ecosystem-agnostic: just tag + GitHub Release (+ optional artefacts) |
 | [Release Market](Release-Market.md) | A **VS Code extension** to the VS Marketplace and/or Open VSX |
 | [Release Mudlet](Release-Mudlet.md) | A **Mudlet** `.mpackage` built with [`@gesslar/muddy`](https://www.npmjs.com/package/@gesslar/muddy) (optional Mupdate) |
@@ -90,9 +92,9 @@ A few patterns recur, so they're explained once here and referenced from the pag
 
 - **Version bumping is automatic.** The Release workflows use
   [`gesslar/new-version-questionmark`](https://github.com/gesslar/new-version-questionmark)
-  to detect whether the version in `package.json` (or `mfile` for Mudlet) changed in the
-  merged PR. No bump → no tag, no release. So releasing is simply: bump the version in your
-  PR, merge it.
+  to detect whether the version in `package.json` (or `mfile` for Mudlet, or a plain
+  `VERSION` file for Go) changed in the merged PR. No bump → no tag, no release. So releasing
+  is simply: bump the version in your PR, merge it.
 
 - **Release triggers on PR merge.** Release workflows are meant to run on
   `pull_request: types: [closed]` against `main`, guarded by

@@ -1,0 +1,218 @@
+# Quality (Go) - Reusable Workflow
+#
+# Lint and test a Go module. Formatting and vetting run on a single ubuntu runner;
+# `go test` runs across an OS matrix. The Go toolchain version is read from go.mod
+# by default, so there's nothing to hardcode.
+#
+# Linting is all-or-nothing: when perform_linting is "yes" the lint job runs gofmt,
+# go vet, and golangci-lint. golangci-lint honours a committed `.golangci.*` config if
+# present, otherwise it runs with its own defaults.
+#
+# INPUTS:
+#   perform_linting (string, default: "yes")
+#     Whether to run the lint job (gofmt + go vet + golangci-lint). "no" to skip.
+#
+#   perform_testing (string, default: "yes")
+#     Whether to run the test job. "no" to skip.
+#
+#   go_version (string, default: "")
+#     Go version for setup-go (e.g. "1.23"). Empty reads the version from go.mod.
+#
+#   disabled_test_runners (string, default: "")
+#     Comma-separated list of OS runners to exclude from testing.
+#     Examples: "windows", "macos", "windows,macos"
+#     Supported values: ubuntu, windows, macos
+#
+#   test_args (string, default: "")
+#     Extra flags appended to `go test ./...` (e.g. "-race", "-count=1").
+#
+# REPOSITORY VARIABLES (optional, no commit needed):
+#   PERFORM_LINTING, PERFORM_TESTING, GO_VERSION
+#     Override the matching input if set.
+#   DISABLED_TEST_RUNNERS
+#     Combines with disabled_test_runners input (both applied if set).
+#
+# EXAMPLE USAGE:
+#   jobs:
+#     Quality:
+#       uses: gesslar/Maint/.github/workflows/QualityGo.yaml@main
+#       with:
+#         disabled_test_runners: "macos"
+#         test_args: "-race"
+
+name: Quality (Go)
+
+on:
+  workflow_call:
+    inputs:
+      perform_linting:
+        type: string
+        default: "yes"
+      perform_testing:
+        type: string
+        default: "yes"
+      go_version:
+        type: string
+        default: ""
+        description: "Go version for setup-go. Empty reads from go.mod."
+      disabled_test_runners:
+        type: string
+        default: ""
+        description: "Comma-separated list of OS runners to exclude (e.g., 'windows,macos')"
+      test_args:
+        type: string
+        default: ""
+        description: "Extra flags appended to 'go test ./...'"
+
+jobs:
+  ConfigureWorkflow:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      perform_linting: ${{ steps.cfg_main.outputs.perform_linting }}
+      perform_testing: ${{ steps.cfg_main.outputs.perform_testing }}
+      go_version: ${{ steps.cfg_main.outputs.go_version }}
+      os_matrix: ${{ steps.cfg_os.outputs.os_matrix }}
+
+    steps:
+      - name: Configure Main
+        id: cfg_main
+        run: |
+          set -euo pipefail
+          PERFORM_LINTING="${{ vars.PERFORM_LINTING || inputs.perform_linting }}"
+          PERFORM_TESTING="${{ vars.PERFORM_TESTING || inputs.perform_testing }}"
+          GO_VERSION="${{ vars.GO_VERSION || inputs.go_version }}"
+
+          echo "perform_linting=${PERFORM_LINTING}" >> "$GITHUB_OUTPUT"
+          echo "perform_testing=${PERFORM_TESTING}" >> "$GITHUB_OUTPUT"
+          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure OS Matrix
+        id: cfg_os
+        run: |
+          set -euo pipefail
+
+          ALL_OS=("ubuntu-latest" "windows-latest" "macos-latest")
+
+          DISABLED_INPUT="${{ inputs.disabled_test_runners }}"
+          DISABLED_VAR="${{ vars.DISABLED_TEST_RUNNERS }}"
+
+          if [[ -n "$DISABLED_INPUT" && -n "$DISABLED_VAR" ]]; then
+            DISABLED="${DISABLED_INPUT},${DISABLED_VAR}"
+          elif [[ -n "$DISABLED_VAR" ]]; then
+            DISABLED="$DISABLED_VAR"
+          else
+            DISABLED="$DISABLED_INPUT"
+          fi
+
+          if [[ -z "$DISABLED" ]]; then
+            OS_LIST=("${ALL_OS[@]}")
+          else
+            IFS=',' read -ra DISABLED_ARRAY <<< "$DISABLED"
+            OS_LIST=()
+            for os in "${ALL_OS[@]}"; do
+              SKIP=false
+              for disabled in "${DISABLED_ARRAY[@]}"; do
+                disabled=$(echo "$disabled" | xargs)
+                if [[ "$os" == *"$disabled"* ]]; then
+                  SKIP=true
+                  break
+                fi
+              done
+              if [[ "$SKIP" == "false" ]]; then
+                OS_LIST+=("$os")
+              fi
+            done
+          fi
+
+          if [[ ${#OS_LIST[@]} -eq 0 ]]; then
+            echo "::error::All test runners have been disabled"
+            exit 1
+          fi
+
+          JSON=$(printf '%s\n' "${OS_LIST[@]}" | jq -R . | jq -s -c .)
+          echo "os_matrix=${JSON}" >> "$GITHUB_OUTPUT"
+          echo "os_list=${OS_LIST[*]}" >> "$GITHUB_OUTPUT"
+          echo "disabled_os=${DISABLED:-<none>}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat <<EOF
+          Quality (Go) Workflow Configuration
+          ═══════════════════════════════════════════════════════════════
+          Perform Linting ......... ${{ steps.cfg_main.outputs.perform_linting }}
+          Perform Testing ......... ${{ steps.cfg_main.outputs.perform_testing }}
+          Go Version .............. ${{ steps.cfg_main.outputs.go_version || 'from go.mod' }}
+          OS Matrix ............... ${{ steps.cfg_os.outputs.os_list }}
+          Disabled OS ............. ${{ steps.cfg_os.outputs.disabled_os }}
+          EOF
+
+  Lint:
+    needs: ConfigureWorkflow
+    if: ${{ needs.ConfigureWorkflow.outputs.perform_linting == 'yes' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ needs.ConfigureWorkflow.outputs.go_version }}
+          go-version-file: go.mod
+
+      - name: Check formatting (gofmt)
+        run: |
+          set -euo pipefail
+          UNFORMATTED=$(gofmt -l . | grep -v '^vendor/' || true)
+          if [[ -n "$UNFORMATTED" ]]; then
+            echo "::error::The following files are not gofmt-formatted:"
+            echo "$UNFORMATTED"
+            echo "Run 'gofmt -w .' (or 'go fmt ./...') to fix."
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+
+  Test:
+    needs: ConfigureWorkflow
+    if: ${{ needs.ConfigureWorkflow.outputs.perform_testing == 'yes' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.ConfigureWorkflow.outputs.os_matrix) }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ needs.ConfigureWorkflow.outputs.go_version }}
+          go-version-file: go.mod
+
+      - name: go build
+        run: go build ./...
+        shell: bash
+
+      - name: go test
+        run: go test ./... ${{ inputs.test_args }}
+        shell: bash
+
+  Quality:
+    needs: [ConfigureWorkflow, Lint, Test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Verify upstream jobs
+        run: |
+          set -euo pipefail
+          results='${{ toJSON(needs) }}'
+          echo "$results" | jq .
+          echo "$results" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'

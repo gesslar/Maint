@@ -69,7 +69,7 @@ jobs:
           wait-interval: 10
           checks-discovery-timeout: 300
 
-  build:
+  BuildPackage:
     needs: WaitForQuality
     runs-on: ubuntu-latest
     permissions:

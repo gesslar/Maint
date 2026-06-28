@@ -32,6 +32,7 @@ and repository-variable overrides.
 ### Quality (CI — lint & test)
 
 - [Quality](docs/Quality.md) — Node.js lint + test across an OS × Node-version matrix
+- [Quality (Go)](docs/Quality-Go.md) — Go gofmt + go vet (+ optional golangci-lint), `go test` across an OS matrix
 - [Quality (Mudlet)](docs/Quality-Mudlet.md) — Mudlet (Lua) Busted specs
 - [Quality (Theme)](docs/Quality-Theme.md) — VS Code theme linting with [`@gesslar/sassy`](https://www.npmjs.com/package/@gesslar/sassy)
 
@@ -39,6 +40,7 @@ and repository-variable overrides.
 
 - [Release](docs/Release.md) — publish a package to npm + GitHub Release
 - [Release Action](docs/Release-Action.md) — a JavaScript GitHub Action with committed `dist/`
+- [Release (Go)](docs/Release-Go.md) — a Go module cross-compiled to Linux/Windows/macOS binaries on a GitHub Release
 - [Release Only](docs/Release-Only.md) — ecosystem-agnostic tag + release (+ optional artefacts)
 - [Release Market](docs/Release-Market.md) — a VS Code extension to VS Marketplace / Open VSX
 - [Release Mudlet](docs/Release-Mudlet.md) — a Mudlet `.mpackage` built with [`@gesslar/muddy`](https://www.npmjs.com/package/@gesslar/muddy)
