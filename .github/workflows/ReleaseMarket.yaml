@@ -221,7 +221,7 @@ jobs:
     steps:
       - name: Wait for Quality workflow
         if: ${{ needs.ConfigureWorkflow.outputs.quality_check != '' }}
-        uses: lewagon/wait-on-check-action@v1.8.0
+        uses: lewagon/wait-on-check-action@v1.8.1
         with:
           ref: ${{ github.ref }}
           check-name: ${{ needs.ConfigureWorkflow.outputs.quality_check }}
