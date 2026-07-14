@@ -247,7 +247,7 @@ jobs:
           git config user.email "${{ needs.ConfigureWorkflow.outputs.git_user_email }}"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
@@ -313,7 +313,7 @@ jobs:
           git config user.email "${{ needs.ConfigureWorkflow.outputs.git_user_email }}"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
@@ -357,7 +357,7 @@ jobs:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
