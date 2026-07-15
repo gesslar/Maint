@@ -284,7 +284,7 @@ jobs:
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ needs.ConfigureWorkflow.outputs.node_version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
@@ -312,7 +312,7 @@ jobs:
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: ${{ needs.ConfigureWorkflow.outputs.package_manager }}
