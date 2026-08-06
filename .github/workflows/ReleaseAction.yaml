@@ -279,7 +279,7 @@ jobs:
 
       - name: Install pnpm
         if: ${{ steps.check_tag.outputs.proceed == 'true' && needs.ConfigureWorkflow.outputs.package_manager == 'pnpm' }}
-        uses: pnpm/action-setup@v6.0.9
+        uses: pnpm/action-setup@v6.0.10
         with:
           version: ${{ needs.ConfigureWorkflow.outputs.pm_version }}
 
