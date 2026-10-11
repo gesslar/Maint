@@ -46,7 +46,7 @@ workflows wait for. See [Overview](README.md) → *Quality → Release gating*.
 | `perform_linting` | `yes` | `no` to skip the lint job. |
 | `perform_testing` | `yes` | `no` to skip the test job. |
 | `disabled_test_runners` | `""` | Comma-separated OS to exclude: `ubuntu`, `windows`, `macos`. |
-| `disabled_node_versions` | `""` | Comma-separated Node majors to exclude, e.g. `24,25`. |
+| `disabled_node_versions` | `""` | Comma-separated Node majors to exclude, e.g. `24,26`. |
 
 ## Repository variable overrides
 

@@ -21,8 +21,8 @@
 #
 #   disabled_node_versions (string, default: "")
 #     Comma-separated list of Node.js versions to exclude from testing.
-#     Examples: "24", "24,25"
-#     Supported values: 24, 25, 26
+#     Examples: "24", "24,26"
+#     Supported values: 24, 26
 #
 # REPOSITORY VARIABLES (optional, no commit needed):
 #   All inputs can be overridden by repository variables. Set these in your repository
@@ -74,7 +74,7 @@ on:
       disabled_node_versions:
         type: string
         default: ""
-        description: "Comma-separated list of Node versions to exclude (e.g., '24,25')"
+        description: "Comma-separated list of Node versions to exclude (e.g., '24,26')"
 
 jobs:
   ConfigureWorkflow:
@@ -210,7 +210,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ALL_NODE_VERSIONS=("24.x" "25.x" "26.x")
+          ALL_NODE_VERSIONS=("24.x" "26.x")
 
           # Combine input and repository variable
           DISABLED_INPUT="${{ inputs.disabled_node_versions }}"
